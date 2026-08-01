@@ -26,8 +26,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hid
 .screen{position:absolute;inset:0;overflow-y:auto;display:none;-webkit-overflow-scrolling:touch}
 .screen.active{display:block}
 .inner{max-width:480px;margin:0 auto;padding:52px 18px 90px}
-
-/* NAV */
 nav{display:flex;justify-content:space-around;background:rgba(20,20,20,.96);
   backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
   border-top:1px solid rgba(255,255,255,.07);
@@ -37,13 +35,9 @@ nav button{background:none;border:none;color:var(--muted);display:flex;flex-dire
   transition:color .18s;padding:4px 20px}
 nav button.active{color:var(--amber)}
 nav button svg{width:22px;height:22px;stroke-width:1.6}
-
-/* TYPE */
 .page-title{font-family:var(--serif);font-size:26px;font-weight:normal;margin-bottom:4px}
 .page-sub{color:var(--muted);font-size:13px;margin-bottom:20px}
 .section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:20px 0 10px}
-
-/* CARDS */
 .card{background:var(--surface);border-radius:var(--radius);border:1px solid rgba(255,255,255,.05);
   margin-bottom:10px;cursor:pointer;transition:background .15s;overflow:hidden}
 .card:active{background:var(--surface2)}
@@ -53,30 +47,20 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .card-meta{font-size:12px;color:var(--muted);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .pips{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
 .pip{width:9px;height:9px;border-radius:50%;background:var(--surface3);flex-shrink:0}
-.pip.done{background:var(--sage)}
-.pip.next{background:var(--amber);box-shadow:0 0 0 2px var(--a-soft)}
-
-/* COMPACT CARD */
+.pip.done{background:var(--sage)}.pip.next{background:var(--amber);box-shadow:0 0 0 2px var(--a-soft)}
 .card-compact .cb{padding:12px 16px;display:flex;align-items:center;gap:12px}
 .card-compact .card-title{font-size:14px;margin-bottom:2px;flex:1}
 .cbar-wrap{width:60px;height:4px;background:var(--surface3);border-radius:2px;margin-top:3px}
 .cbar{height:4px;background:var(--sage);border-radius:2px}
-
-/* BUTTONS */
 .btn{border:none;border-radius:10px;padding:13px 20px;font-size:15px;font-family:var(--sans);cursor:pointer;transition:opacity .15s}
 .btn:active{opacity:.75}
 .btn-primary{background:var(--amber);color:#141414;font-weight:600}
 .btn-ghost{background:var(--surface2);color:var(--text)}
 .btn-danger{background:rgba(224,82,82,.13);color:var(--red);border:1px solid rgba(224,82,82,.2)}
-.btn-row{display:flex;gap:8px}
-.btn-row .btn{flex:1}
-
-/* PILL */
+.btn-row{display:flex;gap:8px}.btn-row .btn{flex:1}
 .pill{display:inline-flex;align-items:center;background:var(--a-soft);color:var(--amber);
   border:1px solid var(--a-border);font-size:11px;padding:3px 9px;border-radius:20px}
 .pill.sage{background:rgba(122,158,138,.1);color:var(--sage);border-color:rgba(122,158,138,.22)}
-
-/* MODAL */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:300;
   align-items:flex-end;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .overlay.open{display:flex}
@@ -89,18 +73,12 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
   padding:11px 13px;margin-bottom:14px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
 .modal input:focus,.modal textarea:focus{border-color:var(--amber)}
 .modal textarea{min-height:130px;resize:none;line-height:1.65;font-family:var(--serif);font-size:14px}
-
-/* BACK */
 .back-btn{background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;
   display:inline-flex;align-items:center;gap:5px;padding:18px 0 12px;font-family:var(--sans)}
-
-/* PLAYER */
 .player-hero{padding:0 0 20px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:20px}
 .p-eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:8px}
 .p-title{font-family:var(--serif);font-size:22px;font-weight:normal;line-height:1.35;margin-bottom:6px}
 .p-meta{font-size:12px;color:var(--muted)}
-
-/* PLAY BUTTON */
 .play-wrap{position:relative;width:68px;height:68px;margin:20px auto}
 @keyframes breathe{0%{opacity:0;transform:scale(.88)}45%{opacity:.35}100%{opacity:0;transform:scale(1.25)}}
 .pulse{position:absolute;inset:-10px;border-radius:50%;border:1.5px solid var(--amber);opacity:0;animation:breathe 3s ease-in-out infinite}
@@ -109,25 +87,19 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
   cursor:pointer;position:relative;z-index:1;display:flex;align-items:center;justify-content:center;transition:transform .1s}
 .play-btn:active{transform:scale(.93)}
 .play-btn svg{width:26px;height:26px}
-
-/* PROGRESS BAR */
 .progress-bar-wrap{height:3px;background:var(--surface3);border-radius:2px;margin:8px 0 4px}
 .progress-bar{height:3px;background:var(--amber);border-radius:2px;transition:width .4s}
 .chunk-info{text-align:center;font-size:11px;color:var(--dim);margin-bottom:4px}
-
 .speed-row{display:flex;gap:6px;justify-content:center;margin:10px 0}
 .spd{background:var(--surface2);border:1px solid rgba(255,255,255,.08);color:var(--muted);
   font-size:12px;padding:5px 11px;border-radius:20px;cursor:pointer;font-family:var(--sans);transition:all .15s}
 .spd.active{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
 .tts-status{text-align:center;font-size:12px;color:var(--muted);min-height:16px;margin:6px 0 14px}
-
 .script-toggle{background:none;border:none;color:var(--amber);font-size:13px;cursor:pointer;
   padding:0 0 12px;font-family:var(--sans);display:block;width:100%;text-align:center}
 .script-body{font-family:var(--serif);font-size:16px;line-height:1.85;
   color:rgba(240,237,230,.8);white-space:pre-wrap;margin-bottom:20px;display:none}
 .script-body.visible{display:block}
-
-/* DOMAIN ROWS */
 .drow{display:flex;align-items:center;gap:12px;padding:13px 16px;background:var(--surface);
   border-radius:12px;margin-bottom:7px;cursor:pointer;border:1px solid rgba(255,255,255,.04);transition:background .15s}
 .drow:active{background:var(--surface2)}
@@ -140,23 +112,17 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .dcheck.done{background:var(--sage);border-color:var(--sage)}
 .dcheck svg{width:10px;height:10px;stroke:#141414;stroke-width:3;display:none}
 .dcheck.done svg{display:block}
-
-/* SEARCH */
 .search-bar{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:12px;
   padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:18px}
 .search-bar input{background:none;border:none;color:var(--text);font-size:15px;flex:1;outline:none;font-family:var(--sans)}
 .search-bar input::placeholder{color:var(--dim)}
 .search-bar svg{color:var(--muted);flex-shrink:0;width:16px;height:16px}
-
-/* DOMAIN INPUT ROWS IN MODAL */
 .d-add-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:6px}
 .d-add-row .dnum{font-size:12px;color:var(--muted);padding-top:14px;width:18px;flex-shrink:0}
 .d-add-row .fields{flex:1;display:flex;flex-direction:column}
 .d-add-row .fields input{margin-bottom:4px}
 .d-add-row .fields textarea{min-height:70px;font-size:13px;margin-bottom:0}
 .d-add-row .rm{background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:10px 4px;line-height:1;flex-shrink:0}
-
-/* OPT-IN */
 .opt-row{display:flex;align-items:center;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .opt-row:last-child{border-bottom:none}
 .opt-info{flex:1;padding-right:12px}
@@ -168,27 +134,51 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .toggle::after{content:'';width:18px;height:18px;border-radius:50%;background:white;
   position:absolute;top:3px;left:3px;transition:left .2s}
 .toggle.on::after{left:21px}
-
-/* SETTINGS */
 .sgroup{background:var(--surface);border-radius:var(--radius);overflow:hidden;margin-bottom:16px}
 .srow{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.05)}
 .srow:last-child{border-bottom:none}
 .srow-label{flex:1;font-size:15px}
 .srow-val{font-size:14px;color:var(--amber)}
 .srow input[type=range]{width:100%;accent-color:var(--amber);margin-top:6px}
-
-/* VOICE PREVIEW */
 .voice-preview-btn{background:none;border:1px solid var(--a-border);color:var(--amber);
   font-size:13px;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:var(--sans);transition:all .15s}
-.voice-preview-btn:active{background:var(--a-soft)}
-
-/* EMPTY */
 .empty{text-align:center;padding:60px 20px;color:var(--muted)}
 .empty p{font-size:14px;line-height:1.6;margin-top:10px}
+/* AUTH */
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.auth-box{width:100%;max-width:360px}
+.auth-box h1{font-family:var(--serif);font-size:32px;font-weight:normal;margin-bottom:6px}
+.auth-box .auth-sub{color:var(--muted);font-size:14px;margin-bottom:32px}
+.auth-box input{width:100%;background:var(--surface);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;color:var(--text);font-family:var(--sans);font-size:15px;
+  padding:13px 14px;margin-bottom:10px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
+.auth-box input:focus{border-color:var(--amber)}
+.auth-error{color:var(--red);font-size:13px;min-height:18px;margin-bottom:10px}
+.auth-switch{background:none;border:none;color:var(--amber);font-size:13px;cursor:pointer;
+  margin-top:14px;font-family:var(--sans);display:block;width:100%;text-align:center}
+/* SYNC STATUS */
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--sage);display:inline-block;margin-right:6px}
+.sync-dot.syncing{background:var(--amber);animation:pulse-dot 1s ease-in-out infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </head>
 <body>
-<div id="app">
+
+<!-- AUTH SCREEN (shown until logged in) -->
+<div id="auth-screen" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div class="auth-box">
+    <h1>WEZA</h1>
+    <div class="auth-sub" id="auth-sub">Sign in to your account</div>
+    <input type="email" id="auth-email" placeholder="Email address" autocomplete="email">
+    <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+    <div class="auth-error" id="auth-error"></div>
+    <button class="btn btn-primary" style="width:100%" id="auth-submit" onclick="submitAuth()">Sign in</button>
+    <button class="auth-switch" id="auth-switch" onclick="toggleAuthMode()">Don't have an account? Create one</button>
+  </div>
+</div>
+
+<div id="app" style="display:none">
   <div id="screens">
 
     <!-- HOME -->
@@ -237,17 +227,14 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
           <div class="p-title" id="p-title"></div>
           <div class="p-meta" id="p-meta"></div>
         </div>
-
         <div class="play-wrap">
           <div class="pulse"></div><div class="pulse"></div>
           <button class="play-btn" id="play-btn" onclick="togglePlay()">
             <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
-
         <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
         <div class="chunk-info" id="chunk-info"></div>
-
         <div class="speed-row">
           <button class="spd" onclick="setSpeed(0.8,this)">0.8×</button>
           <button class="spd active" onclick="setSpeed(1,this)">1×</button>
@@ -255,7 +242,6 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
           <button class="spd" onclick="setSpeed(1.5,this)">1.5×</button>
         </div>
         <div class="tts-status" id="tts-status">Tap play to listen</div>
-
         <button class="script-toggle" id="script-toggle" onclick="toggleScript()">Show script text ↓</button>
         <div class="script-body" id="script-body"></div>
         <div style="height:12px"></div>
@@ -268,7 +254,6 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
       <div class="inner">
         <div class="page-title">Settings</div>
         <div class="page-sub">Voice &amp; playback</div>
-
         <div class="section-label">Voice</div>
         <div class="sgroup">
           <div class="srow">
@@ -280,19 +265,16 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
           </div>
           <div class="srow" style="flex-direction:column;align-items:stretch">
             <div style="display:flex;justify-content:space-between">
-              <span class="srow-label">Pitch</span>
-              <span class="srow-val" id="pitch-val">0.95</span>
+              <span class="srow-label">Pitch</span><span class="srow-val" id="pitch-val">0.95</span>
             </div>
             <input type="range" min="0.5" max="1.5" step="0.05" value="0.95" id="pitch-slider" oninput="updatePitch(this.value)">
           </div>
           <div class="srow" style="flex-direction:column;align-items:stretch">
             <div style="display:flex;justify-content:space-between">
-              <span class="srow-label">Default speed</span>
-              <span class="srow-val" id="speed-val">1×</span>
+              <span class="srow-label">Default speed</span><span class="srow-val" id="speed-val">1×</span>
             </div>
             <input type="range" min="0.5" max="2" step="0.1" value="1" id="speed-slider" oninput="updateDefaultSpeed(this.value)">
           </div>
-          <!-- VOICE PREVIEW -->
           <div class="srow" style="flex-direction:column;align-items:stretch;gap:10px">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <span class="srow-label">Preview voice</span>
@@ -306,7 +288,6 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
               placeholder="Type a sample sentence…">
           </div>
         </div>
-
         <div class="section-label">Playback</div>
         <div class="sgroup">
           <div class="srow">
@@ -314,7 +295,23 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
             <button class="toggle" id="toggle-screen" onclick="toggleKeepScreen(this)"></button>
           </div>
         </div>
-
+        <div class="section-label">Account</div>
+        <div class="sgroup">
+          <div class="srow">
+            <div style="flex:1">
+              <div class="srow-label">Signed in as</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px" id="account-email">—</div>
+            </div>
+          </div>
+          <div class="srow" style="display:flex;align-items:center;gap:8px">
+            <span class="sync-dot" id="sync-dot"></span>
+            <span class="srow-label" id="sync-label">Synced</span>
+            <button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" onclick="forceSave()">Sync now</button>
+          </div>
+          <div class="srow" style="cursor:pointer" onclick="signOut()">
+            <span class="srow-label" style="color:var(--red)">Sign out</span>
+          </div>
+        </div>
         <div class="section-label">Data</div>
         <div class="sgroup">
           <div class="srow" style="cursor:pointer" onclick="exportData()">
@@ -325,27 +322,20 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
             </svg>
           </div>
         </div>
-
-        <div style="height:16px;text-align:center;font-size:12px;color:var(--dim);margin-top:4px">
-          WEZA · Pattern Map Player
-        </div>
+        <div style="height:16px;text-align:center;font-size:12px;color:var(--dim);margin-top:4px">WEZA · Pattern Map Player</div>
       </div>
     </div>
 
-  </div><!-- /screens -->
-
+  </div>
   <nav>
     <button class="active" id="nav-home" onclick="showScreen('home')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Home
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home
     </button>
     <button id="nav-library" onclick="showScreen('library')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-      Library
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library
     </button>
     <button id="nav-settings" onclick="showScreen('settings')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      Settings
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
     </button>
   </nav>
 </div>
@@ -380,67 +370,126 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 </div>
 
 <script>
-// ─── STORAGE ──────────────────────────────────────────────────────────────────
-// TODO (Vercel agent): Replace ld/sv with Neon Postgres API calls scoped to
-// authenticated user. Data shape stays identical — just swap localStorage for
-// fetch('/api/data') GET and POST.
-function ld(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
-function sv(k,v){localStorage.setItem(k,JSON.stringify(v))}
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+let token = localStorage.getItem('weza_token') || null;
+let userEmail = localStorage.getItem('weza_email') || null;
+let authMode = 'login'; // or 'register'
 
-let patterns = ld('weza_patterns',[]);
-let active   = ld('weza_active',[]);
-let cfg      = ld('weza_cfg',{voiceIdx:0,pitch:0.95,speed:1,keepScreen:false});
-function persist(){sv('weza_patterns',patterns);sv('weza_active',active);sv('weza_cfg',cfg)}
-
-// ─── SEED DEMO DATA ──────────────────────────────────────────────────────────
-if(patterns.length===0){
-  patterns=[{
-    id:'demo1',name:'Toxic dynamics — Not enough',
-    main:{title:'Main session: Toxic dynamics',
-      body:'Begin by finding a comfortable position.\n\nBring your awareness gently to the body. Notice the quality of your breath — not to change it, just to feel it moving.\n\nThis work is about the places inside you that learned: I am not enough. That belief did not arrive fully formed. It was installed over time, through repeated small moments where love felt conditional.\n\nBegin tapping the karate chop point on the outer edge of your hand.\n\nEven though I carry this sense of not being enough, I acknowledge where this came from. Even though I learned to work harder, be smaller, prove more — I am open to remembering that I was always enough.'},
-    domains:[
-      {title:'Domain 1 — The inner critic',
-       body:'We begin with the voice that narrates your inadequacy.\n\nIt speaks in second person. It knows your weak points. It has been loyal — in a distorted way — since early childhood.\n\nTapping on the eyebrow point: Even though this voice is loud, it is not the truth of me.'},
-      {title:'Domain 2 — Conditional worth',
-       body:'Your worth was made contingent on performance. On approval. On not making waves.\n\nFeel where in your body you brace for evaluation.\n\nTapping the side of the eye: Even though I learned to earn my place, I am willing to receive worth as a given.'},
-      {title:'Domain 3 — The people-pleasing pattern',
-       body:'Notice how you scan the room. How you adjust.\n\nThis is not weakness. It was once a very intelligent survival strategy.\n\nTapping under the eye: I honour the part of me that kept me safe. And I am ready to let it rest.'}
-    ],createdAt:Date.now()-5*86400000
-  },{
-    id:'demo2',name:'Difficult conversations',
-    main:{title:'Main session: Difficult conversations',
-      body:'Something in you goes quiet before a hard conversation.\n\nThe body anticipates conflict the way it anticipates a fall — bracing, tightening, scanning for an exit.\n\nWe begin here. With what the body already knows.\n\nTapping the collarbone: Even though conflict feels dangerous to me, I am safe in this moment.'},
-    domains:[
-      {title:'Domain 1 — The freeze response',
-       body:'The freeze is not cowardice. It is the nervous system making a calculation.\n\nSlow the breath. Tap the top of the head.\n\nEven though I go blank, even though the words leave me — I am learning to return to myself.'}
-    ],createdAt:Date.now()-10*86400000
-  }];
-  active=[
-    {pid:'demo1',progress:2,lastAt:Date.now()-86400000},
-    {pid:'demo2',progress:1,lastAt:Date.now()-3*86400000}
-  ];
-  persist();
+function toggleAuthMode(){
+  authMode = authMode==='login'?'register':'login';
+  document.getElementById('auth-sub').textContent = authMode==='login'?'Sign in to your account':'Create a new account';
+  document.getElementById('auth-submit').textContent = authMode==='login'?'Sign in':'Create account';
+  document.getElementById('auth-switch').textContent = authMode==='login'?'Don\'t have an account? Create one':'Already have an account? Sign in';
+  document.getElementById('auth-error').textContent = '';
 }
 
+async function submitAuth(){
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const btn = document.getElementById('auth-submit');
+  if(!email||!password){document.getElementById('auth-error').textContent='Email and password are required.';return}
+  btn.disabled=true; btn.textContent='Please wait…';
+  document.getElementById('auth-error').textContent='';
+  try{
+    const res = await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:authMode,email,password})});
+    const data = await res.json();
+    if(!res.ok){document.getElementById('auth-error').textContent=data.error||'Something went wrong.';btn.disabled=false;btn.textContent=authMode==='login'?'Sign in':'Create account';return}
+    token=data.token; userEmail=data.email;
+    localStorage.setItem('weza_token',token);
+    localStorage.setItem('weza_email',userEmail);
+    await initApp();
+  }catch(e){document.getElementById('auth-error').textContent='Network error. Check your connection.';btn.disabled=false;btn.textContent=authMode==='login'?'Sign in':'Create account'}
+}
+
+function signOut(){
+  if(!confirm('Sign out?'))return;
+  token=null;userEmail=null;
+  localStorage.removeItem('weza_token');localStorage.removeItem('weza_email');
+  location.reload();
+}
+
+// ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
+let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:false};
+let saveTimer=null, syncing=false;
+
+async function loadFromServer(){
+  setSyncState('syncing');
+  try{
+    const res=await fetch('/api/data',{headers:{Authorization:'Bearer '+token}});
+    if(res.status===401){signOut();return}
+    const data=await res.json();
+    patterns=data.patterns||[];
+    active=data.active||[];
+    cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:false},data.cfg||{});
+    setSyncState('ok');
+  }catch(e){setSyncState('error');console.error('Load error',e)}
+}
+
+async function saveToServer(){
+  if(!token)return;
+  syncing=true; setSyncState('syncing');
+  try{
+    await fetch('/api/data',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({patterns,active,cfg})});
+    setSyncState('ok');
+  }catch(e){setSyncState('error')}
+  syncing=false;
+}
+
+function persist(){
+  // Debounce saves — wait 1.5s after last change before writing to server
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveToServer,1500);
+}
+
+async function forceSave(){await saveToServer();setSyncState('ok')}
+
+function setSyncState(state){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  if(!dot)return;
+  dot.className='sync-dot'+(state==='syncing'?' syncing':state==='error'?' error':'');
+  lbl.textContent=state==='syncing'?'Syncing…':state==='error'?'Sync failed — tap to retry':'Synced';
+}
+
+// ─── APP INIT ─────────────────────────────────────────────────────────────────
+async function initApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
+  await loadFromServer();
+  document.getElementById('account-email').textContent=userEmail||'';
+  loadVoices();
+  renderHome();
+}
+
+// On load — if token exists, go straight to app
+window.addEventListener('DOMContentLoaded',async()=>{
+  if(token){
+    await initApp();
+  }
+  // Enter key on auth form
+  ['auth-email','auth-password'].forEach(id=>{
+    document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')submitAuth()});
+  });
+});
+
 // ─── APP STATE ────────────────────────────────────────────────────────────────
-let curPid=null, curIdx=null, prevScreen='home';
+let curPid=null,curIdx=null,prevScreen='home';
 let synth=window.speechSynthesis;
-let chunks=[], chunkIdx=0, playing=false;
-let playRate=cfg.speed||1, voices=[], wakeLock=null;
-let editPid=null, domN=0;
-let previewPlaying=false;
+let chunks=[],chunkIdx=0,playing=false;
+let playRate=1,voices=[],wakeLock=null;
+let editPid=null,domN=0,previewPlaying=false;
 
 // ─── SCREENS ──────────────────────────────────────────────────────────────────
 function showScreen(n){
-  if(!['map','player'].includes(n)) prevScreen=n;
+  if(!['map','player'].includes(n))prevScreen=n;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(n+'-screen').classList.add('active');
-  const nb=document.getElementById('nav-'+n);
-  if(nb) nb.classList.add('active');
-  if(n==='home') renderHome();
-  if(n==='library') renderLibrary();
-  if(n==='settings') renderSettings();
+  const nb=document.getElementById('nav-'+n);if(nb)nb.classList.add('active');
+  if(n==='home')renderHome();
+  if(n==='library')renderLibrary();
+  if(n==='settings')renderSettings();
 }
 function goBack(){stopAll();showScreen(prevScreen)}
 function goToMap(){stopAll();showScreen('map')}
@@ -450,45 +499,24 @@ function closeOverlay(id){document.getElementById(id).classList.remove('open')}
 function renderHome(){
   const list=document.getElementById('home-list');
   const sorted=[...active].sort((a,b)=>b.lastAt-a.lastAt);
-  document.getElementById('home-sub').textContent=
-    sorted.length===0?'No active patterns yet':`${sorted.length} active pattern${sorted.length!==1?'s':''}`;
+  document.getElementById('home-sub').textContent=sorted.length===0?'No active patterns yet':`${sorted.length} active pattern${sorted.length!==1?'s':''}`;
   if(sorted.length===0){
-    list.innerHTML=`<div class="empty">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--sage)" width="36" height="36"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-      <p>Go to Library and opt in to a pattern map to begin.</p></div>
-    <div style="height:12px"></div>
-    <button class="btn btn-primary" style="width:100%" onclick="openOptinModal()">+ Opt in to a pattern</button>`;
-    return;
+    list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="var(--sage)" width="36" height="36"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Go to Library and opt in to a pattern map to begin.</p></div>
+    <div style="height:12px"></div><button class="btn btn-primary" style="width:100%" onclick="openOptinModal()">+ Opt in to a pattern</button>`;return;
   }
   let html='';
   sorted.forEach((ap,i)=>{
-    const pat=patterns.find(p=>p.id===ap.pid); if(!pat) return;
-    const total=1+pat.domains.length, done=ap.progress;
-    const pct=Math.round(done/total*100);
+    const pat=patterns.find(p=>p.id===ap.pid);if(!pat)return;
+    const total=1+pat.domains.length,done=ap.progress,pct=Math.round(done/total*100);
     if(i<3){
-      let pips='';
-      for(let j=0;j<total;j++){
-        if(j<done) pips+='<div class="pip done"></div>';
-        else if(j===done) pips+='<div class="pip next"></div>';
-        else pips+='<div class="pip"></div>';
-      }
+      let pips='';for(let j=0;j<total;j++){if(j<done)pips+='<div class="pip done"></div>';else if(j===done)pips+='<div class="pip next"></div>';else pips+='<div class="pip"></div>';}
       const nextLabel=done>=total?'Complete ✓':(done===0?'Main session':(pat.domains[done-1]?.title||`Domain ${done}`));
-      html+=`<div class="card" onclick="openMapScreen('${pat.id}')"><div class="cb">
-        <div class="eyebrow">${done} of ${total} complete</div>
-        <div class="card-title">${pat.name}</div>
-        <div class="pips">${pips}</div>
-        <div class="card-meta" style="margin-top:8px">Next: <span style="color:var(--amber)">${nextLabel}</span></div>
-      </div></div>`;
-    } else {
-      html+=`<div class="card card-compact" onclick="openMapScreen('${pat.id}')"><div class="cb">
-        <div style="flex:1"><div class="card-title">${pat.name}</div>
-        <div class="cbar-wrap"><div class="cbar" style="width:${pct}%"></div></div></div>
-        <div style="font-size:11px;color:var(--muted);white-space:nowrap">${done}/${total}</div>
-      </div></div>`;
+      html+=`<div class="card" onclick="openMapScreen('${pat.id}')"><div class="cb"><div class="eyebrow">${done} of ${total} complete</div><div class="card-title">${pat.name}</div><div class="pips">${pips}</div><div class="card-meta" style="margin-top:8px">Next: <span style="color:var(--amber)">${nextLabel}</span></div></div></div>`;
+    }else{
+      html+=`<div class="card card-compact" onclick="openMapScreen('${pat.id}')"><div class="cb"><div style="flex:1"><div class="card-title">${pat.name}</div><div class="cbar-wrap"><div class="cbar" style="width:${pct}%"></div></div></div><div style="font-size:11px;color:var(--muted);white-space:nowrap">${done}/${total}</div></div></div>`;
     }
   });
-  html+=`<div style="height:12px"></div>
-    <button class="btn btn-ghost" style="width:100%;font-size:14px" onclick="openOptinModal()">+ Opt in to a pattern</button>`;
+  html+=`<div style="height:12px"></div><button class="btn btn-ghost" style="width:100%;font-size:14px" onclick="openOptinModal()">+ Opt in to a pattern</button>`;
   list.innerHTML=html;
 }
 
@@ -500,65 +528,37 @@ function renderLibrary(){
   if(filt.length===0){list.innerHTML='<div class="empty"><p>No patterns yet.<br>Add your first one below.</p></div>';return}
   list.innerHTML=filt.map(p=>{
     const ap=active.find(a=>a.pid===p.id);
-    const total=1+p.domains.length, done=ap?ap.progress:0;
-    return `<div class="card" onclick="openMapScreen('${p.id}')"><div class="cb">
-      <div class="eyebrow">${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</div>
-      <div class="card-title">${p.name}</div>
-      <div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}</div>
-    </div></div>`;
+    const total=1+p.domains.length,done=ap?ap.progress:0;
+    return `<div class="card" onclick="openMapScreen('${p.id}')"><div class="cb"><div class="eyebrow">${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</div><div class="card-title">${p.name}</div><div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}</div></div></div>`;
   }).join('');
 }
 
 // ─── MAP SCREEN ───────────────────────────────────────────────────────────────
 function openMapScreen(pid){
-  curPid=pid;
-  const pat=patterns.find(p=>p.id===pid); if(!pat) return;
-  const ap=active.find(a=>a.pid===pid);
-  const done=ap?ap.progress:0, total=1+pat.domains.length;
+  curPid=pid;const pat=patterns.find(p=>p.id===pid);if(!pat)return;
+  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0,total=1+pat.domains.length;
   let html=`<div class="page-title" style="font-size:21px;line-height:1.3">${pat.name}</div>
   <div style="margin:8px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <span class="pill">${done} of ${total} complete</span>
     ${!ap?`<button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="optInMap('${pid}')">Opt in</button>`:''}
-  </div>
-  <div class="section-label">Main session</div>`;
+  </div><div class="section-label">Main session</div>`;
   html+=drow('M',pat.main.title,pid,0,done>0,done===0);
-  if(pat.domains.length>0){
-    html+='<div class="section-label">Domains</div>';
-    pat.domains.forEach((d,i)=>{ html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1); });
-  }
-  html+=`<div style="height:20px"></div><div class="btn-row">
-    <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
-    <button class="btn btn-danger" onclick="delPattern('${pid}')">Delete</button>
-  </div>`;
+  if(pat.domains.length>0){html+='<div class="section-label">Domains</div>';pat.domains.forEach((d,i)=>{html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1)});}
+  html+=`<div style="height:20px"></div><div class="btn-row"><button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button><button class="btn btn-danger" onclick="delPattern('${pid}')">Delete</button></div>`;
   document.getElementById('map-content').innerHTML=html;
   showScreen('map');
 }
 function drow(lbl,title,pid,idx,isDone,isNext){
-  return `<div class="drow${isNext?' is-next':''}${isDone?' is-done':''}" onclick="openPlayer('${pid}',${idx})">
-    <div class="drow-idx">${lbl}</div>
-    <div class="drow-name">${title}</div>
-    <div class="dcheck${isDone?' done':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div>
-  </div>`;
+  return `<div class="drow${isNext?' is-next':''}${isDone?' is-done':''}" onclick="openPlayer('${pid}',${idx})"><div class="drow-idx">${lbl}</div><div class="drow-name">${title}</div><div class="dcheck${isDone?' done':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
 }
-function optInMap(pid){
-  if(!active.find(a=>a.pid===pid)) active.push({pid,progress:0,lastAt:Date.now()});
-  persist(); openMapScreen(pid);
-}
-function delPattern(pid){
-  if(!confirm('Delete this pattern? This cannot be undone.')) return;
-  patterns=patterns.filter(p=>p.id!==pid);
-  active=active.filter(a=>a.pid!==pid);
-  persist(); showScreen('library');
-}
+function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,lastAt:Date.now()});persist();openMapScreen(pid)}
+function delPattern(pid){if(!confirm('Delete this pattern? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist();showScreen('library')}
 
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
 function openPlayer(pid,idx){
-  curPid=pid; curIdx=idx;
-  const pat=patterns.find(p=>p.id===pid); if(!pat) return;
-  stopAll();
-  const scr=idx===0?pat.main:pat.domains[idx-1]; if(!scr) return;
-  const ap=active.find(a=>a.pid===pid);
-  const done=ap?ap.progress:0;
+  curPid=pid;curIdx=idx;const pat=patterns.find(p=>p.id===pid);if(!pat)return;
+  stopAll();const scr=idx===0?pat.main:pat.domains[idx-1];if(!scr)return;
+  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0;
   document.getElementById('p-eyebrow').textContent=idx===0?'Main session':`Domain ${idx} · ${pat.name}`;
   document.getElementById('p-title').textContent=scr.title;
   const wc=scr.body.split(/\s+/).length;
@@ -569,276 +569,150 @@ function openPlayer(pid,idx){
   document.getElementById('tts-status').textContent=idx<done?'Already complete — tap to revisit':'Tap play to listen';
   document.getElementById('progress-bar').style.width='0%';
   document.getElementById('chunk-info').textContent='';
-  const shortName=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
-  document.getElementById('player-back-label').textContent=shortName;
+  document.getElementById('player-back-label').textContent=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
   const showComplete=ap&&idx===done&&done<(1+pat.domains.length);
   document.getElementById('complete-btn').style.display=showComplete?'block':'none';
-  setPlayIcon(false);
-  playRate=cfg.speed||1;
+  setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
 }
-function toggleScript(){
-  const b=document.getElementById('script-body'),t=document.getElementById('script-toggle');
-  b.classList.toggle('visible');
-  t.textContent=b.classList.contains('visible')?'Hide script ↑':'Show script text ↓';
-}
+function toggleScript(){const b=document.getElementById('script-body'),t=document.getElementById('script-toggle');b.classList.toggle('visible');t.textContent=b.classList.contains('visible')?'Hide script ↑':'Show script text ↓'}
 
 // ─── CHUNKED TTS ──────────────────────────────────────────────────────────────
-// Splits script into paragraph chunks, speaks sequentially.
-// Marks complete only after final chunk ends without interruption.
-
 function splitChunks(text){
-  // Split on double newline (paragraphs); fallback to sentences for very long single paragraphs
   let raw=text.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
   const out=[];
   raw.forEach(para=>{
-    if(para.length<600){ out.push(para); }
-    else {
-      // Break long paragraph at sentence boundaries
-      const sents=para.match(/[^.!?]+[.!?]+[\s]*/g)||[para];
-      let buf='';
-      sents.forEach(s=>{ if((buf+s).length>500&&buf){out.push(buf.trim());buf=s} else buf+=s; });
-      if(buf.trim()) out.push(buf.trim());
-    }
+    if(para.length<600){out.push(para)}
+    else{const sents=para.match(/[^.!?]+[.!?]+[\s]*/g)||[para];let buf='';sents.forEach(s=>{if((buf+s).length>500&&buf){out.push(buf.trim());buf=s}else buf+=s});if(buf.trim())out.push(buf.trim())}
   });
   return out;
 }
-
-function togglePlay(){if(playing) stopAll(); else startChunkedPlay()}
-
+function togglePlay(){if(playing)stopAll();else startChunkedPlay()}
 function startChunkedPlay(){
-  const pat=patterns.find(p=>p.id===curPid); if(!pat) return;
-  const scr=curIdx===0?pat.main:pat.domains[curIdx-1]; if(!scr) return;
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  const scr=curIdx===0?pat.main:pat.domains[curIdx-1];if(!scr)return;
   if(!('speechSynthesis' in window)){document.getElementById('tts-status').textContent='TTS not available.';return}
-  chunks=splitChunks(scr.body);
-  chunkIdx=0;
-  playing=true;
-  setPlayIcon(true);
-  document.getElementById('tts-status').textContent='Playing…';
-  acquireWake();
-  speakChunk();
+  chunks=splitChunks(scr.body);chunkIdx=0;playing=true;setPlayIcon(true);
+  document.getElementById('tts-status').textContent='Playing…';acquireWake();speakChunk();
 }
-
 function speakChunk(){
-  if(!playing||chunkIdx>=chunks.length){ onPlaybackEnd(); return; }
+  if(!playing||chunkIdx>=chunks.length){onPlaybackEnd();return}
   synth.cancel();
   const utt=new SpeechSynthesisUtterance(chunks[chunkIdx]);
-  utt.rate=playRate;
-  utt.pitch=cfg.pitch||0.95;
-  utt.volume=1;
-  if(voices.length>0) utt.voice=voices[cfg.voiceIdx%voices.length];
+  utt.rate=playRate;utt.pitch=cfg.pitch||0.95;utt.volume=1;
+  if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
   const pct=Math.round((chunkIdx/chunks.length)*100);
   document.getElementById('progress-bar').style.width=pct+'%';
   document.getElementById('chunk-info').textContent=`${chunkIdx+1} / ${chunks.length}`;
-  utt.onend=()=>{ if(!playing) return; chunkIdx++; speakChunk(); };
-  utt.onerror=(e)=>{ if(e.error==='interrupted') return; playing=false; setPlayIcon(false); releaseWake(); document.getElementById('tts-status').textContent='Stopped'; };
+  utt.onend=()=>{if(!playing)return;chunkIdx++;speakChunk()};
+  utt.onerror=(e)=>{if(e.error==='interrupted')return;playing=false;setPlayIcon(false);releaseWake();document.getElementById('tts-status').textContent='Stopped'};
   synth.speak(utt);
 }
-
 function onPlaybackEnd(){
-  playing=false; setPlayIcon(false); releaseWake();
+  playing=false;setPlayIcon(false);releaseWake();
   document.getElementById('progress-bar').style.width='100%';
   document.getElementById('chunk-info').textContent='';
   document.getElementById('tts-status').textContent='Complete';
   autoComplete();
 }
-
 function stopAll(){
-  synth.cancel(); playing=false; setPlayIcon(false); releaseWake();
-  previewPlaying=false; updatePreviewBtn();
-  const el=document.getElementById('tts-status');
-  if(el) el.textContent='Tap play to listen';
+  synth.cancel();playing=false;setPlayIcon(false);releaseWake();previewPlaying=false;updatePreviewBtn();
+  const el=document.getElementById('tts-status');if(el)el.textContent='Tap play to listen';
   document.getElementById('progress-bar').style.width='0%';
   document.getElementById('chunk-info').textContent='';
 }
-
-function setSpeed(r,btn){
-  playRate=r;
-  document.querySelectorAll('.spd').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  if(playing){ chunkIdx=Math.max(0,chunkIdx-1); speakChunk(); } // restart current chunk at new speed
-}
+function setSpeed(r,btn){playRate=r;document.querySelectorAll('.spd').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(playing){chunkIdx=Math.max(0,chunkIdx-1);speakChunk()}}
 function setPlayIcon(p){document.getElementById('play-icon').innerHTML=p?'<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>':'<path d="M8 5v14l11-7z"/>'}
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
 function autoComplete(){
-  const pat=patterns.find(p=>p.id===curPid); if(!pat) return;
-  const ap=active.find(a=>a.pid===curPid); if(!ap) return;
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const total=1+pat.domains.length;
-  if(curIdx===ap.progress&&ap.progress<total){
-    ap.progress++; ap.lastAt=Date.now(); persist();
-    document.getElementById('tts-status').textContent='✓ Marked complete';
-    document.getElementById('complete-btn').style.display='none';
-  }
+  if(curIdx===ap.progress&&ap.progress<total){ap.progress++;ap.lastAt=Date.now();persist();document.getElementById('tts-status').textContent='✓ Marked complete';document.getElementById('complete-btn').style.display='none'}
 }
 function manualComplete(){
-  const pat=patterns.find(p=>p.id===curPid); if(!pat) return;
-  const ap=active.find(a=>a.pid===curPid); if(!ap) return;
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const total=1+pat.domains.length;
-  if(curIdx===ap.progress&&ap.progress<total){
-    ap.progress++; ap.lastAt=Date.now(); persist();
-    document.getElementById('tts-status').textContent='✓ Marked complete';
-    document.getElementById('complete-btn').style.display='none';
-  }
+  if(curIdx===ap.progress&&ap.progress<total){ap.progress++;ap.lastAt=Date.now();persist();document.getElementById('tts-status').textContent='✓ Marked complete';document.getElementById('complete-btn').style.display='none'}
 }
 
-// ─── OPT-IN MODAL ─────────────────────────────────────────────────────────────
+// ─── OPT-IN ───────────────────────────────────────────────────────────────────
 function openOptinModal(){
   const list=document.getElementById('optin-list');
-  if(patterns.length===0){
-    list.innerHTML='<p style="color:var(--muted);font-size:14px">No patterns in library yet.</p>';
-  } else {
-    list.innerHTML=patterns.map(p=>{
-      const isIn=!!active.find(a=>a.pid===p.id);
-      return `<div class="opt-row">
-        <div class="opt-info"><div class="opt-title">${p.name}</div><div class="opt-sub">${1+p.domains.length} scripts</div></div>
-        <button class="toggle${isIn?' on':''}" id="ot-${p.id}" onclick="toggleOptIn('${p.id}')"></button>
-      </div>`;
-    }).join('');
-  }
+  if(patterns.length===0){list.innerHTML='<p style="color:var(--muted);font-size:14px">No patterns in library yet.</p>'}
+  else{list.innerHTML=patterns.map(p=>{const isIn=!!active.find(a=>a.pid===p.id);return `<div class="opt-row"><div class="opt-info"><div class="opt-title">${p.name}</div><div class="opt-sub">${1+p.domains.length} scripts</div></div><button class="toggle${isIn?' on':''}" id="ot-${p.id}" onclick="toggleOptIn('${p.id}')"></button></div>`}).join('')}
   document.getElementById('optin-modal').classList.add('open');
 }
 function toggleOptIn(pid){
   const ap=active.find(a=>a.pid===pid);
   if(ap){if(!confirm('Remove from active work? Progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);document.getElementById('ot-'+pid)?.classList.remove('on')}
   else{active.push({pid,progress:0,lastAt:Date.now()});document.getElementById('ot-'+pid)?.classList.add('on')}
-  persist(); renderHome();
+  persist();renderHome();
 }
 
 // ─── PATTERN MODAL ────────────────────────────────────────────────────────────
-function openNewPatternModal(){
-  editPid=null; domN=0;
-  document.getElementById('pm-title').textContent='New pattern map';
-  document.getElementById('pm-name').value='';
-  document.getElementById('pm-main').value='';
-  document.getElementById('domain-inputs').innerHTML='';
-  addDomainInput();
-  document.getElementById('pattern-modal').classList.add('open');
-}
-function openEditModal(pid){
-  const pat=patterns.find(p=>p.id===pid); if(!pat) return;
-  editPid=pid; domN=0;
-  document.getElementById('pm-title').textContent='Edit pattern map';
-  document.getElementById('pm-name').value=pat.name;
-  document.getElementById('pm-main').value=pat.main.body;
-  document.getElementById('domain-inputs').innerHTML='';
-  pat.domains.forEach(d=>addDomainInput(d.title,d.body));
-  if(pat.domains.length===0) addDomainInput();
-  document.getElementById('pattern-modal').classList.add('open');
-}
-function addDomainInput(tv='',bv=''){
-  domN++; const n=domN;
-  const div=document.createElement('div');
-  div.id='db-'+n; div.className='d-add-row';
-  div.innerHTML=`<span class="dnum">${n}</span><div class="fields">
-    <input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}">
-    <textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea>
-  </div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;
-  document.getElementById('domain-inputs').appendChild(div);
-}
+function openNewPatternModal(){editPid=null;domN=0;document.getElementById('pm-title').textContent='New pattern map';document.getElementById('pm-name').value='';document.getElementById('pm-main').value='';document.getElementById('domain-inputs').innerHTML='';addDomainInput();document.getElementById('pattern-modal').classList.add('open')}
+function openEditModal(pid){const pat=patterns.find(p=>p.id===pid);if(!pat)return;editPid=pid;domN=0;document.getElementById('pm-title').textContent='Edit pattern map';document.getElementById('pm-name').value=pat.name;document.getElementById('pm-main').value=pat.main.body;document.getElementById('domain-inputs').innerHTML='';pat.domains.forEach(d=>addDomainInput(d.title,d.body));if(pat.domains.length===0)addDomainInput();document.getElementById('pattern-modal').classList.add('open')}
+function addDomainInput(tv='',bv=''){domN++;const n=domN;const div=document.createElement('div');div.id='db-'+n;div.className='d-add-row';div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;document.getElementById('domain-inputs').appendChild(div)}
 function savePattern(){
-  const name=document.getElementById('pm-name').value.trim();
-  const mainBody=document.getElementById('pm-main').value.trim();
+  const name=document.getElementById('pm-name').value.trim();const mainBody=document.getElementById('pm-main').value.trim();
   if(!name||!mainBody){alert('Pattern name and main script are required.');return}
-  const doms=[];
-  document.querySelectorAll('[id^="db-"]').forEach(b=>{
-    const n=b.id.replace('db-','');
-    const t=document.getElementById('dt-'+n)?.value.trim();
-    const bv=document.getElementById('dbody-'+n)?.value.trim();
-    if(t&&bv) doms.push({title:t,body:bv});
-  });
-  if(editPid){
-    const pat=patterns.find(p=>p.id===editPid);
-    if(pat){pat.name=name;pat.main={title:name+' — Main',body:mainBody};pat.domains=doms}
-  } else {
-    patterns.push({id:'p'+Date.now(),name,main:{title:name+' — Main',body:mainBody},domains:doms,createdAt:Date.now()});
-  }
-  persist(); closePatternModal(); renderLibrary();
-  if(editPid) openMapScreen(editPid);
+  const doms=[];document.querySelectorAll('[id^="db-"]').forEach(b=>{const n=b.id.replace('db-','');const t=document.getElementById('dt-'+n)?.value.trim();const bv=document.getElementById('dbody-'+n)?.value.trim();if(t&&bv)doms.push({title:t,body:bv})});
+  if(editPid){const pat=patterns.find(p=>p.id===editPid);if(pat){pat.name=name;pat.main={title:name+' — Main',body:mainBody};pat.domains=doms}}
+  else{patterns.push({id:'p'+Date.now(),name,main:{title:name+' — Main',body:mainBody},domains:doms,createdAt:Date.now()})}
+  persist();closePatternModal();renderLibrary();if(editPid)openMapScreen(editPid);
 }
 function closePatternModal(){document.getElementById('pattern-modal').classList.remove('open')}
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 function renderSettings(){
-  document.getElementById('pitch-slider').value=cfg.pitch;
-  document.getElementById('pitch-val').textContent=parseFloat(cfg.pitch).toFixed(2);
-  document.getElementById('speed-slider').value=cfg.speed;
-  document.getElementById('speed-val').textContent=parseFloat(cfg.speed).toFixed(1)+'×';
+  document.getElementById('pitch-slider').value=cfg.pitch;document.getElementById('pitch-val').textContent=parseFloat(cfg.pitch).toFixed(2);
+  document.getElementById('speed-slider').value=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(cfg.speed).toFixed(1)+'×';
   document.getElementById('toggle-screen').classList.toggle('on',cfg.keepScreen);
+  document.getElementById('account-email').textContent=userEmail||'';
   updateVoiceDisplay();
 }
 function updatePitch(v){cfg.pitch=parseFloat(v);document.getElementById('pitch-val').textContent=parseFloat(v).toFixed(2);persist()}
 function updateDefaultSpeed(v){cfg.speed=parseFloat(v);playRate=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(v).toFixed(1)+'×';persist()}
 function toggleKeepScreen(btn){cfg.keepScreen=!cfg.keepScreen;btn.classList.toggle('on',cfg.keepScreen);persist()}
-function updateVoiceDisplay(){
-  const el=document.getElementById('voice-name'); if(!el) return;
-  if(voices.length===0){el.textContent='Default device voice';return}
-  const v=voices[cfg.voiceIdx%voices.length];
-  el.textContent=v?`${v.name} (${v.lang})`:'Default';
-}
-function cycleVoice(){
-  if(voices.length===0)return;
-  cfg.voiceIdx=(cfg.voiceIdx+1)%voices.length;
-  persist(); updateVoiceDisplay();
-  // Auto-preview after changing voice so you hear it immediately
-  if(previewPlaying) stopPreview();
-  startPreview();
-}
+function updateVoiceDisplay(){const el=document.getElementById('voice-name');if(!el)return;if(voices.length===0){el.textContent='Default device voice';return}const v=voices[cfg.voiceIdx%voices.length];el.textContent=v?`${v.name} (${v.lang})`:'Default'}
+function cycleVoice(){if(voices.length===0)return;cfg.voiceIdx=(cfg.voiceIdx+1)%voices.length;persist();updateVoiceDisplay();if(previewPlaying)stopPreview();startPreview()}
 
 // ─── VOICE PREVIEW ────────────────────────────────────────────────────────────
-function togglePreview(){if(previewPlaying) stopPreview(); else startPreview()}
+function togglePreview(){if(previewPlaying)stopPreview();else startPreview()}
 function startPreview(){
-  const text=document.getElementById('preview-text')?.value.trim();
-  if(!text||!('speechSynthesis' in window)) return;
-  synth.cancel(); previewPlaying=true; updatePreviewBtn();
+  const text=document.getElementById('preview-text')?.value.trim();if(!text||!('speechSynthesis' in window))return;
+  synth.cancel();previewPlaying=true;updatePreviewBtn();
   const utt=new SpeechSynthesisUtterance(text);
   utt.rate=parseFloat(document.getElementById('speed-slider').value)||cfg.speed;
   utt.pitch=parseFloat(document.getElementById('pitch-slider').value)||cfg.pitch;
-  utt.volume=1;
-  if(voices.length>0) utt.voice=voices[cfg.voiceIdx%voices.length];
+  utt.volume=1;if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
   utt.onend=()=>{previewPlaying=false;updatePreviewBtn()};
   utt.onerror=(e)=>{if(e.error!=='interrupted'){previewPlaying=false;updatePreviewBtn()}};
   synth.speak(utt);
 }
 function stopPreview(){synth.cancel();previewPlaying=false;updatePreviewBtn()}
-function updatePreviewBtn(){
-  const btn=document.getElementById('preview-btn'); if(!btn) return;
-  btn.textContent=previewPlaying?'■ Stop':'▶ Play sample';
-}
+function updatePreviewBtn(){const btn=document.getElementById('preview-btn');if(!btn)return;btn.textContent=previewPlaying?'■ Stop':'▶ Play sample'}
 
 // ─── VOICES ───────────────────────────────────────────────────────────────────
 function loadVoices(){
   const v=synth.getVoices().filter(v=>v.lang.startsWith('en'));
-  if(v.length>0){
-    voices=v;
-    // Prefer calm natural voices
-    const pref=['Samantha','Karen','Daniel','Oliver','Aaron','Moira','Tessa','Google UK English Female'];
-    const found=pref.reduce((b,n)=>b||v.find(x=>x.name.includes(n)),null);
-    if(found&&cfg.voiceIdx===0) cfg.voiceIdx=v.indexOf(found);
-    updateVoiceDisplay();
-  }
+  if(v.length>0){voices=v;const pref=['Samantha','Karen','Daniel','Oliver','Aaron','Moira','Tessa','Google UK English Female'];const found=pref.reduce((b,n)=>b||v.find(x=>x.name.includes(n)),null);if(found&&cfg.voiceIdx===0)cfg.voiceIdx=v.indexOf(found);updateVoiceDisplay()}
 }
-synth.onvoiceschanged=loadVoices; loadVoices();
+synth.onvoiceschanged=loadVoices;
 
 // ─── WAKE LOCK ────────────────────────────────────────────────────────────────
-async function acquireWake(){
-  if(!cfg.keepScreen) return;
-  try{if('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen')}catch(e){}
-}
+async function acquireWake(){if(!cfg.keepScreen)return;try{if('wakeLock' in navigator)wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
 function releaseWake(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
 
 // ─── EXPORT ───────────────────────────────────────────────────────────────────
-function exportData(){
-  const blob=new Blob([JSON.stringify({patterns,active,cfg,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='weza-backup.json';a.click();
-}
+function exportData(){const blob=new Blob([JSON.stringify({patterns,active,cfg,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='weza-backup.json';a.click()}
 
 // ─── MODAL BG DISMISS ────────────────────────────────────────────────────────
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
-
-// ─── INIT ─────────────────────────────────────────────────────────────────────
-renderHome();
 </script>
 </body>
 </html>
