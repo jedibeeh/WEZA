@@ -35,27 +35,31 @@ export default async function handler(req, res) {
         SELECT patterns, active, cfg FROM user_data WHERE user_id = ${userId}
       `;
       if (result.rows.length === 0) {
-        // First time — create empty row
         await sql`
           INSERT INTO user_data (user_id, patterns, active, cfg)
           VALUES (${userId}, '[]', '[]', '{}')
           ON CONFLICT (user_id) DO NOTHING
         `;
-        return res.status(200).json({ patterns: [], active: [], cfg: {} });
+        return res.status(200).json({ patterns: [], active: [], cfg: {}, updatedAt: 0 });
       }
       const row = result.rows[0];
+      // updatedAt stored in cfg.updatedAt (ms epoch) — avoids schema change
+      const serverUpdatedAt = row.cfg?.updatedAt || 0;
       return res.status(200).json({
-        patterns: row.patterns || [],
-        active:   row.active   || [],
-        cfg:      row.cfg      || {}
+        patterns:  row.patterns || [],
+        active:    row.active   || [],
+        cfg:       row.cfg      || {},
+        updatedAt: serverUpdatedAt
       });
     }
 
     if (req.method === 'POST') {
-      const { patterns, active, cfg } = req.body || {};
+      const { patterns, active, cfg, updatedAt } = req.body || {};
+      // Store updatedAt inside cfg so it survives without a schema change
+      const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-        VALUES (${userId}, ${JSON.stringify(patterns || [])}, ${JSON.stringify(active || [])}, ${JSON.stringify(cfg || {})}, NOW())
+        VALUES (${userId}, ${JSON.stringify(patterns || [])}, ${JSON.stringify(active || [])}, ${JSON.stringify(cfgWithTs)}, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
           patterns   = EXCLUDED.patterns,
           active     = EXCLUDED.active,
