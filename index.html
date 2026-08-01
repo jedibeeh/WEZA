@@ -544,7 +544,18 @@ function openMapScreen(pid){
   </div><div class="section-label">Main session</div>`;
   html+=drow('M',pat.main.title,pid,0,done>0,done===0);
   if(pat.domains.length>0){html+='<div class="section-label">Domains</div>';pat.domains.forEach((d,i)=>{html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1)});}
-  html+=`<div style="height:20px"></div><div class="btn-row"><button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button><button class="btn btn-danger" onclick="delPattern('${pid}')">Delete</button></div>`;
+  // Buttons: if opted in → Edit + Drop; if not opted in → Edit + Delete
+  if(ap){
+    html+=`<div style="height:20px"></div><div class="btn-row">
+      <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
+      <button class="btn btn-danger" onclick="optOutMap('${pid}')">Drop pattern</button>
+    </div>`;
+  } else {
+    html+=`<div style="height:20px"></div><div class="btn-row">
+      <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
+      <button class="btn btn-danger" onclick="delPattern('${pid}')">Delete</button>
+    </div>`;
+  }
   document.getElementById('map-content').innerHTML=html;
   showScreen('map');
 }
@@ -552,7 +563,8 @@ function drow(lbl,title,pid,idx,isDone,isNext){
   return `<div class="drow${isNext?' is-next':''}${isDone?' is-done':''}" onclick="openPlayer('${pid}',${idx})"><div class="drow-idx">${lbl}</div><div class="drow-name">${title}</div><div class="dcheck${isDone?' done':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
 }
 function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,lastAt:Date.now()});persist();openMapScreen(pid)}
-function delPattern(pid){if(!confirm('Delete this pattern? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist();showScreen('library')}
+function optOutMap(pid){if(!confirm('Drop this pattern from your active work? Your progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);persist();showScreen(prevScreen==='home'?'home':'library')}
+function delPattern(pid){if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist();showScreen('library')}
 
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
 function openPlayer(pid,idx){
@@ -715,26 +727,32 @@ function exportData(){const blob=new Blob([JSON.stringify({patterns,active,cfg,e
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
 
 // ─── AUTO-REFRESH ON APP FOCUS ────────────────────────────────────────────────
-// Re-fetches from server whenever the tab/app becomes visible again.
-// This is how mobile gets updates made on desktop (and vice versa).
-// Only runs if logged in and not currently playing audio.
+// Three triggers: visibilitychange (tab switch), focus (window focus),
+// and a periodic poll every 30s. Android doesn't always fire visibilitychange
+// reliably when returning from another app, so the poll is the safety net.
 let lastFetchAt = 0;
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && token && !playing) {
-    const now = Date.now();
-    // Throttle: don't re-fetch if we fetched less than 10 seconds ago
-    if (now - lastFetchAt < 10000) return;
-    lastFetchAt = now;
-    await loadFromServer();
-    // Refresh whichever screen is currently active
-    const active_screen = document.querySelector('.screen.active')?.id;
-    if (active_screen === 'home-screen') renderHome();
-    if (active_screen === 'library-screen') renderLibrary();
-    if (active_screen === 'map-screen' && curPid) openMapScreen(curPid);
-  }
-});
 
-// Also patch loadFromServer to track fetch time
+async function refreshIfStale() {
+  if (!token || playing) return;
+  const now = Date.now();
+  if (now - lastFetchAt < 15000) return; // don't re-fetch within 15s
+  lastFetchAt = now;
+  await loadFromServer();
+  const s = document.querySelector('.screen.active')?.id;
+  if (s === 'home-screen') renderHome();
+  if (s === 'library-screen') renderLibrary();
+  if (s === 'map-screen' && curPid) openMapScreen(curPid);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshIfStale();
+});
+window.addEventListener('focus', () => refreshIfStale());
+
+// Poll every 30 seconds as fallback for Android PWA
+setInterval(() => refreshIfStale(), 30000);
+
+// Track fetch time in loadFromServer
 const _origLoad = loadFromServer;
 loadFromServer = async function() {
   lastFetchAt = Date.now();
