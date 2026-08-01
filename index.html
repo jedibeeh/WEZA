@@ -90,6 +90,15 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .progress-bar-wrap{height:3px;background:var(--surface3);border-radius:2px;margin:8px 0 4px}
 .progress-bar{height:3px;background:var(--amber);border-radius:2px;transition:width .4s}
 .chunk-info{text-align:center;font-size:11px;color:var(--dim);margin-bottom:4px}
+/* SCRUBBER */
+.scrubber-wrap{padding:14px 0 4px;cursor:pointer;touch-action:none}
+.scrubber-track{height:4px;background:var(--surface3);border-radius:2px;position:relative}
+.scrubber-fill{height:4px;background:var(--amber);border-radius:2px;position:absolute;top:0;left:0;transition:width .3s}
+.scrubber-thumb{width:16px;height:16px;border-radius:50%;background:var(--amber);position:absolute;top:50%;transform:translate(-50%,-50%);transition:left .3s;box-shadow:0 0 0 3px var(--a-soft)}
+/* SKIP BUTTONS */
+.skip-row{display:flex;align-items:center;justify-content:center;margin:4px 0 10px}
+.skip-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:8px;border-radius:50%;transition:color .15s,background .15s}
+.skip-btn:active{color:var(--amber);background:var(--a-soft)}
 .speed-row{display:flex;gap:6px;justify-content:center;margin:10px 0}
 .spd{background:var(--surface2);border:1px solid rgba(255,255,255,.08);color:var(--muted);
   font-size:12px;padding:5px 11px;border-radius:20px;cursor:pointer;font-family:var(--sans);transition:all .15s}
@@ -233,8 +242,27 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
             <svg id="play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
-        <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar" style="width:0%"></div></div>
+
+        <!-- SCRUBBER: tap anywhere to jump to that paragraph -->
+        <div class="scrubber-wrap" id="scrubber-wrap" onclick="scrubberTap(event)">
+          <div class="scrubber-track">
+            <div class="scrubber-fill" id="scrubber-fill" style="width:0%"></div>
+            <div class="scrubber-thumb" id="scrubber-thumb" style="left:0%"></div>
+          </div>
+        </div>
         <div class="chunk-info" id="chunk-info"></div>
+
+        <!-- SKIP BACK / PLAY / SKIP FORWARD -->
+        <div class="skip-row">
+          <button class="skip-btn" onclick="skipChunk(-1)" title="Previous paragraph">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+          </button>
+          <div style="width:20px"></div>
+          <button class="skip-btn" onclick="skipChunk(1)" title="Next paragraph">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M6 18l8.5-6L6 6v12zm2.5-6 5.5 3.9V8.1L8.5 12zM16 6h2v12h-2z"/></svg>
+          </button>
+        </div>
+
         <div class="speed-row">
           <button class="spd" onclick="setSpeed(0.8,this)">0.8×</button>
           <button class="spd active" onclick="setSpeed(1,this)">1×</button>
@@ -608,42 +636,134 @@ function splitChunks(text){
   });
   return out;
 }
-function togglePlay(){if(playing)stopAll();else startChunkedPlay()}
+
+// togglePlay: if paused mid-session, RESUME from current chunk (not restart)
+function togglePlay(){
+  if(playing){
+    pausePlayback();
+  } else {
+    if(chunks.length>0 && chunkIdx<chunks.length){
+      // Resume from where we left off
+      resumePlayback();
+    } else {
+      startChunkedPlay();
+    }
+  }
+}
+
 function startChunkedPlay(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const scr=curIdx===0?pat.main:pat.domains[curIdx-1];if(!scr)return;
   if(!('speechSynthesis' in window)){document.getElementById('tts-status').textContent='TTS not available.';return}
-  chunks=splitChunks(scr.body);chunkIdx=0;playing=true;setPlayIcon(true);
-  document.getElementById('tts-status').textContent='Playing…';acquireWake();speakChunk();
+  chunks=splitChunks(scr.body);chunkIdx=0;
+  playing=true;setPlayIcon(true);
+  document.getElementById('tts-status').textContent='Playing…';
+  acquireWake();setupMediaSession();speakChunk();
 }
+
+function resumePlayback(){
+  playing=true;setPlayIcon(true);
+  document.getElementById('tts-status').textContent='Playing…';
+  acquireWake();setupMediaSession();speakChunk();
+}
+
+function pausePlayback(){
+  synth.cancel();
+  playing=false;setPlayIcon(false);releaseWake();
+  document.getElementById('tts-status').textContent='Paused — tap to resume';
+  // Don't reset chunks or chunkIdx — preserves position
+}
+
 function speakChunk(){
   if(!playing||chunkIdx>=chunks.length){onPlaybackEnd();return}
   synth.cancel();
   const utt=new SpeechSynthesisUtterance(chunks[chunkIdx]);
   utt.rate=playRate;utt.pitch=cfg.pitch||0.95;utt.volume=1;
   if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
-  const pct=Math.round((chunkIdx/chunks.length)*100);
-  document.getElementById('progress-bar').style.width=pct+'%';
-  document.getElementById('chunk-info').textContent=`${chunkIdx+1} / ${chunks.length}`;
+  updateScrubber();
   utt.onend=()=>{if(!playing)return;chunkIdx++;speakChunk()};
   utt.onerror=(e)=>{if(e.error==='interrupted')return;playing=false;setPlayIcon(false);releaseWake();document.getElementById('tts-status').textContent='Stopped'};
   synth.speak(utt);
 }
+
 function onPlaybackEnd(){
   playing=false;setPlayIcon(false);releaseWake();
-  document.getElementById('progress-bar').style.width='100%';
+  chunkIdx=0;chunks=[];// reset so next play starts fresh
+  updateScrubber(true);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('tts-status').textContent='Complete';
   autoComplete();
 }
+
 function stopAll(){
-  synth.cancel();playing=false;setPlayIcon(false);releaseWake();previewPlaying=false;updatePreviewBtn();
+  synth.cancel();playing=false;chunks=[];chunkIdx=0;setPlayIcon(false);releaseWake();
+  previewPlaying=false;updatePreviewBtn();
   const el=document.getElementById('tts-status');if(el)el.textContent='Tap play to listen';
-  document.getElementById('progress-bar').style.width='0%';
+  updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
 }
-function setSpeed(r,btn){playRate=r;document.querySelectorAll('.spd').forEach(b=>b.classList.remove('active'));btn.classList.add('active');if(playing){chunkIdx=Math.max(0,chunkIdx-1);speakChunk()}}
+
+// Skip forward or back by N paragraphs
+function skipChunk(dir){
+  const wasPlaying=playing;
+  synth.cancel();
+  chunkIdx=Math.max(0,Math.min(chunks.length-1,chunkIdx+dir));
+  updateScrubber();
+  if(wasPlaying){playing=true;speakChunk();}
+  else{document.getElementById('tts-status').textContent=`Paragraph ${chunkIdx+1} of ${chunks.length}`}
+}
+
+// Tap on scrubber to jump to paragraph
+function scrubberTap(e){
+  if(chunks.length===0)return;
+  const wrap=document.getElementById('scrubber-wrap');
+  const rect=wrap.getBoundingClientRect();
+  const pct=(e.clientX-rect.left)/rect.width;
+  const target=Math.max(0,Math.min(chunks.length-1,Math.floor(pct*chunks.length)));
+  const wasPlaying=playing;
+  synth.cancel();
+  chunkIdx=target;
+  updateScrubber();
+  if(wasPlaying){playing=true;speakChunk();}
+  else{document.getElementById('tts-status').textContent=`Paragraph ${chunkIdx+1} of ${chunks.length}`}
+}
+
+function updateScrubber(complete){
+  const fill=document.getElementById('scrubber-fill');
+  const thumb=document.getElementById('scrubber-thumb');
+  const info=document.getElementById('chunk-info');
+  if(!fill)return;
+  if(complete===true){fill.style.width='100%';thumb.style.left='100%';if(info)info.textContent='';return}
+  if(chunks.length===0){fill.style.width='0%';thumb.style.left='0%';if(info)info.textContent='';return}
+  const pct=Math.round((chunkIdx/chunks.length)*100);
+  fill.style.width=pct+'%';
+  thumb.style.left=pct+'%';
+  if(info)info.textContent=`${chunkIdx+1} / ${chunks.length}`;
+}
+
+function setSpeed(r,btn){
+  playRate=r;
+  document.querySelectorAll('.spd').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(playing){synth.cancel();speakChunk();}
+}
 function setPlayIcon(p){document.getElementById('play-icon').innerHTML=p?'<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>':'<path d="M8 5v14l11-7z"/>'}
+
+// ─── MEDIA SESSION API (background / lock screen controls) ───────────────────
+function setupMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  const pat=patterns.find(p=>p.id===curPid);
+  const scr=pat?(curIdx===0?pat.main:pat.domains[curIdx-1]):null;
+  navigator.mediaSession.metadata=new MediaMetadata({
+    title: scr?.title||'WEZA Session',
+    artist: pat?.name||'WEZA',
+    album: 'WEZA Pattern Work'
+  });
+  navigator.mediaSession.setActionHandler('play',()=>{resumePlayback()});
+  navigator.mediaSession.setActionHandler('pause',()=>{pausePlayback()});
+  navigator.mediaSession.setActionHandler('previoustrack',()=>{skipChunk(-1)});
+  navigator.mediaSession.setActionHandler('nexttrack',()=>{skipChunk(1)});
+}
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
 function autoComplete(){
