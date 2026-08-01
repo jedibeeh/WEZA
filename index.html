@@ -615,7 +615,7 @@ function openPlayer(pid,idx){
   document.getElementById('script-body').classList.remove('visible');
   document.getElementById('script-toggle').textContent='Show script text ↓';
   document.getElementById('tts-status').textContent=idx<done?'Already complete — tap to revisit':'Tap play to listen';
-  document.getElementById('progress-bar').style.width='0%';
+  updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('player-back-label').textContent=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
   const showComplete=ap&&idx===done&&done<(1+pat.domains.length);
