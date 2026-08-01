@@ -410,7 +410,7 @@ function signOut(){
 
 // ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
 let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:false};
-let saveTimer=null, syncing=false;
+let saveTimer=null, syncing=false, localUpdatedAt=0;
 
 async function loadFromServer(){
   setSyncState('syncing');
@@ -418,31 +418,39 @@ async function loadFromServer(){
     const res=await fetch('/api/data',{headers:{Authorization:'Bearer '+token}});
     if(res.status===401){signOut();return}
     const data=await res.json();
-    patterns=data.patterns||[];
-    active=data.active||[];
-    cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:false},data.cfg||{});
+    const serverTs=data.updatedAt||0;
+    // Only apply server data if it is newer than our last local edit.
+    // Prevents background polls from overwriting unsaved local changes.
+    if(serverTs>=localUpdatedAt){
+      patterns=data.patterns||[];
+      active=data.active||[];
+      cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:false},data.cfg||{});
+      localUpdatedAt=serverTs;
+    }
     setSyncState('ok');
   }catch(e){setSyncState('error');console.error('Load error',e)}
 }
 
 async function saveToServer(){
   if(!token)return;
+  clearTimeout(saveTimer);
   syncing=true; setSyncState('syncing');
+  const ts=Date.now(); localUpdatedAt=ts;
   try{
     await fetch('/api/data',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({patterns,active,cfg})});
+      body:JSON.stringify({patterns,active,cfg,updatedAt:ts})});
     setSyncState('ok');
   }catch(e){setSyncState('error')}
   syncing=false;
 }
 
 function persist(){
-  // Debounce saves — wait 1.5s after last change before writing to server
+  localUpdatedAt=Date.now(); // mark edit time immediately
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(saveToServer,1500);
+  saveTimer=setTimeout(saveToServer,2000);
 }
 
-async function forceSave(){await saveToServer();setSyncState('ok')}
+async function forceSave(){clearTimeout(saveTimer);await saveToServer();}
 
 function setSyncState(state){
   const dot=document.getElementById('sync-dot');
