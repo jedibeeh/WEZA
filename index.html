@@ -170,6 +170,14 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .sync-dot.syncing{background:var(--amber);animation:pulse-dot 1s ease-in-out infinite}
 .sync-dot.error{background:var(--red)}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+/* CATEGORIES */
+.cat-pill{background:var(--surface2);border:1px solid rgba(255,255,255,.08);color:var(--muted);font-size:12px;padding:5px 10px;border-radius:20px;cursor:pointer;font-family:var(--sans);transition:all .15s;white-space:nowrap}
+.cat-pill.selected{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
+.cat-tag{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.8px;padding:2px 8px;border-radius:6px;background:var(--a-soft);color:var(--amber);border:1px solid var(--a-border);margin-bottom:6px}
+.lib-filter{display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;scrollbar-width:none}
+.lib-filter::-webkit-scrollbar{display:none}
+.filt-pill{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--muted);font-size:12px;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:var(--sans);white-space:nowrap;transition:all .15s;flex-shrink:0}
+.filt-pill.active{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
 </style>
 </head>
 <body>
@@ -208,6 +216,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           <input type="text" placeholder="Search patterns…" id="lib-search" oninput="renderLibrary()">
         </div>
+        <div class="lib-filter" id="lib-filter"></div>
         <div id="library-list"></div>
         <div style="height:12px"></div>
         <button class="btn btn-primary" style="width:100%" onclick="openNewPatternModal()">+ New pattern map</button>
@@ -273,7 +282,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <button class="script-toggle" id="script-toggle" onclick="toggleScript()">Show script text ↓</button>
         <div class="script-body" id="script-body"></div>
         <div style="height:12px"></div>
-        <button class="btn btn-ghost" id="complete-btn" style="width:100%;display:none" onclick="manualComplete()">Mark as complete ✓</button>
+        <button class="btn btn-ghost" id="complete-btn" style="width:100%;display:none" onclick="toggleComplete()">Mark as complete ✓</button>
       </div>
     </div>
 
@@ -374,6 +383,8 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
     <h2 id="pm-title">New pattern map</h2>
     <label>Pattern name</label>
     <input type="text" id="pm-name" placeholder="e.g. Toxic dynamics — Not enough">
+    <label>Category</label>
+    <div id="pm-category-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
     <label>Main session script</label>
     <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
     <label>Domain scripts <span style="color:var(--dim);text-transform:none;font-size:10px;letter-spacing:0">(in order)</span></label>
@@ -398,7 +409,40 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 </div>
 
 <script>
-// ─── AUTH ─────────────────────────────────────────────────────────────────────
+// ─── WHEEL OF LIFE CATEGORIES ─────────────────────────────────────────────────
+const WHEEL=[
+  {id:1,name:'Self & Identity',covers:'Self-worth, self-concept, shame, confidence, authenticity, inner child'},
+  {id:2,name:'Emotional Wellbeing',covers:'Emotional regulation, grief, anxiety, depression, anger, resilience'},
+  {id:3,name:'Body & Health',covers:'Physical health, sleep, energy, eating, exercise, sexuality, embodiment'},
+  {id:4,name:'Relationships & Attachment',covers:'Romantic relationships, friendships, family, intimacy, boundaries, attachment'},
+  {id:5,name:'Purpose & Meaning',covers:'Calling, mission, fulfillment, spirituality in work, contribution, significance'},
+  {id:6,name:'Career, Business & Achievement',covers:'Performance, productivity, leadership, entrepreneurship, success'},
+  {id:7,name:'Money & Abundance',covers:'Wealth, financial safety, receiving, scarcity, earning, debt, prosperity'},
+  {id:8,name:'Expression & Creativity',covers:'Voice, communication, visibility, creativity, public speaking, art'},
+  {id:9,name:'Spirituality & Consciousness',covers:'Presence, awareness, awakening, meditation, surrender, inner peace'},
+  {id:10,name:'Environment & Lifestyle',covers:'Home, routines, habits, organisation, digital life, daily rhythm'},
+  {id:11,name:'Play, Joy & Fulfillment',covers:'Fun, pleasure, hobbies, adventure, celebration, wonder, enjoyment'},
+  {id:12,name:'Growth & Learning',covers:'Personal development, learning, wisdom, skills, adaptability, transformation'}
+];
+
+// ─── SILENT AUDIO LOOP (keeps browser audio session alive on lock screen) ─────
+// Plays a near-silent tone in a loop so Android doesn't suspend the audio context.
+let silentAudio=null;
+function startSilentAudio(){
+  if(silentAudio)return;
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    gain.gain.value=0.001; // essentially silent
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.start();
+    silentAudio={ctx,osc,gain};
+  }catch(e){}
+}
+function stopSilentAudio(){
+  try{if(silentAudio){silentAudio.osc.stop();silentAudio.ctx.close();silentAudio=null;}}catch(e){}
+}
 let token = localStorage.getItem('weza_token') || null;
 let userEmail = localStorage.getItem('weza_email') || null;
 let authMode = 'login'; // or 'register'
@@ -557,35 +601,76 @@ function renderHome(){
 }
 
 // ─── LIBRARY ──────────────────────────────────────────────────────────────────
+let libFilter=null; // null = all, number = category id
+
+function renderLibFilter(){
+  const el=document.getElementById('lib-filter');if(!el)return;
+  const used=new Set(patterns.map(p=>p.category).filter(Boolean));
+  let html=`<button class="filt-pill${!libFilter?' active':''}" onclick="setLibFilter(null)">All</button>`;
+  WHEEL.forEach(w=>{
+    if(used.has(w.id)) html+=`<button class="filt-pill${libFilter===w.id?' active':''}" onclick="setLibFilter(${w.id})">${w.name}</button>`;
+  });
+  el.innerHTML=html;
+}
+function setLibFilter(id){libFilter=id;renderLibrary()}
+
 function renderLibrary(){
+  renderLibFilter();
   const q=(document.getElementById('lib-search')?.value||'').toLowerCase();
   const list=document.getElementById('library-list');
-  const filt=patterns.filter(p=>!q||p.name.toLowerCase().includes(q));
+  let filt=patterns.filter(p=>(!q||p.name.toLowerCase().includes(q))&&(!libFilter||p.category===libFilter));
   if(filt.length===0){list.innerHTML='<div class="empty"><p>No patterns yet.<br>Add your first one below.</p></div>';return}
-  list.innerHTML=filt.map(p=>{
-    const ap=active.find(a=>a.pid===p.id);
-    const total=1+p.domains.length,done=ap?ap.progress:0;
-    return `<div class="card" onclick="openMapScreen('${p.id}')"><div class="cb"><div class="eyebrow">${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</div><div class="card-title">${p.name}</div><div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}</div></div></div>`;
-  }).join('');
+  // Group by category
+  const grouped={};
+  filt.forEach(p=>{
+    const key=p.category||0;
+    if(!grouped[key])grouped[key]=[];
+    grouped[key].push(p);
+  });
+  let html='';
+  // Uncategorised first if any
+  if(grouped[0]){
+    grouped[0].forEach(p=>{ html+=patCard(p); });
+  }
+  // Then by wheel order
+  WHEEL.forEach(w=>{
+    if(!grouped[w.id])return;
+    html+=`<div class="section-label">${w.name}</div>`;
+    grouped[w.id].forEach(p=>{ html+=patCard(p); });
+  });
+  list.innerHTML=html;
+}
+
+function patCard(p){
+  const ap=active.find(a=>a.pid===p.id);
+  const total=1+p.domains.length,done=ap?ap.progress:0;
+  const cat=p.category?WHEEL.find(w=>w.id===p.category):null;
+  return `<div class="card" onclick="openMapScreen('${p.id}')"><div class="cb">
+    ${cat?`<div class="cat-tag">${cat.name}</div><br>`:''}
+    <div class="card-title" style="margin-top:2px">${p.name}</div>
+    <div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}
+      <span>${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</span>
+    </div>
+  </div></div>`;
 }
 
 // ─── MAP SCREEN ───────────────────────────────────────────────────────────────
 function openMapScreen(pid){
   curPid=pid;const pat=patterns.find(p=>p.id===pid);if(!pat)return;
   const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0,total=1+pat.domains.length;
+  const cat=pat.category?WHEEL.find(w=>w.id===pat.category):null;
   let html=`<div class="page-title" style="font-size:21px;line-height:1.3">${pat.name}</div>
   <div style="margin:8px 0 18px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    ${cat?`<span class="cat-tag">${cat.name}</span>`:''}
     <span class="pill">${done} of ${total} complete</span>
     ${!ap?`<button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="optInMap('${pid}')">Opt in</button>`:''}
   </div><div class="section-label">Main session</div>`;
   html+=drow('M',pat.main.title,pid,0,done>0,done===0);
   if(pat.domains.length>0){html+='<div class="section-label">Domains</div>';pat.domains.forEach((d,i)=>{html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1)});}
-  // Buttons: if opted in → Edit + Drop; if not opted in → Edit + Delete
+  // Buttons: if opted in → Drop only (edit lives in Library); if not opted in → Edit + Delete
   if(ap){
-    html+=`<div style="height:20px"></div><div class="btn-row">
-      <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
-      <button class="btn btn-danger" onclick="optOutMap('${pid}')">Drop pattern</button>
-    </div>`;
+    html+=`<div style="height:20px"></div>
+      <button class="btn btn-danger" style="width:100%" onclick="optOutMap('${pid}')">Drop pattern</button>`;
   } else {
     html+=`<div style="height:20px"></div><div class="btn-row">
       <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
@@ -618,8 +703,9 @@ function openPlayer(pid,idx){
   updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('player-back-label').textContent=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
-  const showComplete=ap&&idx===done&&done<(1+pat.domains.length);
+  const showComplete=!!ap; // show for any opted-in pattern
   document.getElementById('complete-btn').style.display=showComplete?'block':'none';
+  if(showComplete) updateCompleteBtn();
   setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
@@ -658,18 +744,18 @@ function startChunkedPlay(){
   chunks=splitChunks(scr.body);chunkIdx=0;
   playing=true;setPlayIcon(true);
   document.getElementById('tts-status').textContent='Playing…';
-  acquireWake();setupMediaSession();speakChunk();
+  acquireWake();setupMediaSession();startSilentAudio();speakChunk();
 }
 
 function resumePlayback(){
   playing=true;setPlayIcon(true);
   document.getElementById('tts-status').textContent='Playing…';
-  acquireWake();setupMediaSession();speakChunk();
+  acquireWake();setupMediaSession();startSilentAudio();speakChunk();
 }
 
 function pausePlayback(){
   synth.cancel();
-  playing=false;setPlayIcon(false);releaseWake();
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();
   document.getElementById('tts-status').textContent='Paused — tap to resume';
   // Don't reset chunks or chunkIdx — preserves position
 }
@@ -687,8 +773,8 @@ function speakChunk(){
 }
 
 function onPlaybackEnd(){
-  playing=false;setPlayIcon(false);releaseWake();
-  chunkIdx=0;chunks=[];// reset so next play starts fresh
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();
+  chunkIdx=0;chunks=[];
   updateScrubber(true);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('tts-status').textContent='Complete';
@@ -696,7 +782,7 @@ function onPlaybackEnd(){
 }
 
 function stopAll(){
-  synth.cancel();playing=false;chunks=[];chunkIdx=0;setPlayIcon(false);releaseWake();
+  synth.cancel();playing=false;chunks=[];chunkIdx=0;setPlayIcon(false);releaseWake();stopSilentAudio();
   previewPlaying=false;updatePreviewBtn();
   const el=document.getElementById('tts-status');if(el)el.textContent='Tap play to listen';
   updateScrubber(false);
@@ -766,17 +852,53 @@ function setupMediaSession(){
 }
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
+function updateCompleteBtn(){
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  const ap=active.find(a=>a.pid===curPid);if(!ap)return;
+  const btn=document.getElementById('complete-btn');if(!btn)return;
+  const total=1+pat.domains.length;
+  const isComplete=curIdx<ap.progress; // this script is already marked done
+  btn.style.display='block';
+  if(isComplete){
+    btn.textContent='✓ Complete — tap to undo';
+    btn.style.background='rgba(122,158,138,0.15)';
+    btn.style.color='var(--sage)';
+    btn.style.border='1px solid rgba(122,158,138,0.3)';
+  } else {
+    btn.textContent='Mark as complete ✓';
+    btn.style.background='';btn.style.color='';btn.style.border='';
+  }
+}
+
+function toggleComplete(){
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  const ap=active.find(a=>a.pid===curPid);if(!ap)return;
+  const total=1+pat.domains.length;
+  const isComplete=curIdx<ap.progress;
+  if(isComplete){
+    // Undo: step progress back to this script
+    if(!confirm('Mark this session as not complete?'))return;
+    ap.progress=curIdx;ap.lastAt=Date.now();persist();
+    document.getElementById('tts-status').textContent='Marked incomplete';
+  } else {
+    // Mark complete: advance progress past this script
+    if(curIdx===ap.progress&&ap.progress<total){
+      ap.progress++;ap.lastAt=Date.now();persist();
+      document.getElementById('tts-status').textContent='✓ Marked complete';
+    }
+  }
+  updateCompleteBtn();
+}
+
 function autoComplete(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const total=1+pat.domains.length;
-  if(curIdx===ap.progress&&ap.progress<total){ap.progress++;ap.lastAt=Date.now();persist();document.getElementById('tts-status').textContent='✓ Marked complete';document.getElementById('complete-btn').style.display='none'}
-}
-function manualComplete(){
-  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
-  const ap=active.find(a=>a.pid===curPid);if(!ap)return;
-  const total=1+pat.domains.length;
-  if(curIdx===ap.progress&&ap.progress<total){ap.progress++;ap.lastAt=Date.now();persist();document.getElementById('tts-status').textContent='✓ Marked complete';document.getElementById('complete-btn').style.display='none'}
+  if(curIdx===ap.progress&&ap.progress<total){
+    ap.progress++;ap.lastAt=Date.now();persist();
+    document.getElementById('tts-status').textContent='✓ Marked complete';
+    updateCompleteBtn();
+  }
 }
 
 // ─── OPT-IN ───────────────────────────────────────────────────────────────────
@@ -794,15 +916,50 @@ function toggleOptIn(pid){
 }
 
 // ─── PATTERN MODAL ────────────────────────────────────────────────────────────
-function openNewPatternModal(){editPid=null;domN=0;document.getElementById('pm-title').textContent='New pattern map';document.getElementById('pm-name').value='';document.getElementById('pm-main').value='';document.getElementById('domain-inputs').innerHTML='';addDomainInput();document.getElementById('pattern-modal').classList.add('open')}
-function openEditModal(pid){const pat=patterns.find(p=>p.id===pid);if(!pat)return;editPid=pid;domN=0;document.getElementById('pm-title').textContent='Edit pattern map';document.getElementById('pm-name').value=pat.name;document.getElementById('pm-main').value=pat.main.body;document.getElementById('domain-inputs').innerHTML='';pat.domains.forEach(d=>addDomainInput(d.title,d.body));if(pat.domains.length===0)addDomainInput();document.getElementById('pattern-modal').classList.add('open')}
+function buildCatPicker(selectedId){
+  const el=document.getElementById('pm-category-picker');if(!el)return;
+  el.innerHTML=WHEEL.map(w=>`<button type="button" class="cat-pill${selectedId===w.id?' selected':''}" onclick="selectCat(${w.id})">${w.name}</button>`).join('');
+}
+function selectCat(id){
+  document.querySelectorAll('.cat-pill').forEach(b=>b.classList.toggle('selected',parseInt(b.textContent===WHEEL.find(w=>w.id===id)?.name?'1':'0')>0||b.onclick?.toString().includes(`(${id})`)));
+  // simpler: re-render picker with new selection
+  buildCatPicker(id);
+  document.getElementById('pm-category-picker').dataset.selected=id;
+}
+function getSelectedCat(){return parseInt(document.getElementById('pm-category-picker')?.dataset.selected||'0')||null}
+
+function openNewPatternModal(){
+  editPid=null;domN=0;
+  document.getElementById('pm-title').textContent='New pattern map';
+  document.getElementById('pm-name').value='';
+  document.getElementById('pm-main').value='';
+  document.getElementById('domain-inputs').innerHTML='';
+  buildCatPicker(null);
+  document.getElementById('pm-category-picker').dataset.selected='';
+  addDomainInput();
+  document.getElementById('pattern-modal').classList.add('open');
+}
+function openEditModal(pid){
+  const pat=patterns.find(p=>p.id===pid);if(!pat)return;
+  editPid=pid;domN=0;
+  document.getElementById('pm-title').textContent='Edit pattern map';
+  document.getElementById('pm-name').value=pat.name;
+  document.getElementById('pm-main').value=pat.main.body;
+  document.getElementById('domain-inputs').innerHTML='';
+  buildCatPicker(pat.category||null);
+  document.getElementById('pm-category-picker').dataset.selected=pat.category||'';
+  pat.domains.forEach(d=>addDomainInput(d.title,d.body));
+  if(pat.domains.length===0)addDomainInput();
+  document.getElementById('pattern-modal').classList.add('open');
+}
 function addDomainInput(tv='',bv=''){domN++;const n=domN;const div=document.createElement('div');div.id='db-'+n;div.className='d-add-row';div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;document.getElementById('domain-inputs').appendChild(div)}
 function savePattern(){
   const name=document.getElementById('pm-name').value.trim();const mainBody=document.getElementById('pm-main').value.trim();
   if(!name||!mainBody){alert('Pattern name and main script are required.');return}
   const doms=[];document.querySelectorAll('[id^="db-"]').forEach(b=>{const n=b.id.replace('db-','');const t=document.getElementById('dt-'+n)?.value.trim();const bv=document.getElementById('dbody-'+n)?.value.trim();if(t&&bv)doms.push({title:t,body:bv})});
-  if(editPid){const pat=patterns.find(p=>p.id===editPid);if(pat){pat.name=name;pat.main={title:name+' — Main',body:mainBody};pat.domains=doms}}
-  else{patterns.push({id:'p'+Date.now(),name,main:{title:name+' — Main',body:mainBody},domains:doms,createdAt:Date.now()})}
+  const category=getSelectedCat();
+  if(editPid){const pat=patterns.find(p=>p.id===editPid);if(pat){pat.name=name;pat.main={title:name+' — Main',body:mainBody};pat.domains=doms;pat.category=category}}
+  else{patterns.push({id:'p'+Date.now(),name,main:{title:name+' — Main',body:mainBody},domains:doms,category,createdAt:Date.now()})}
   persist();closePatternModal();renderLibrary();if(editPid)openMapScreen(editPid);
 }
 function closePatternModal(){document.getElementById('pattern-modal').classList.remove('open')}
