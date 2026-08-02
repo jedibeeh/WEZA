@@ -446,24 +446,23 @@ const WHEEL=[
 ];
 
 // ─── SILENT AUDIO LOOP (keeps Chrome audio session alive through screen lock) ──
-// An oscillator alone doesn't register as a media session on Android.
-// A looping Audio element with a tiny silent MP3 does — it's the standard
-// technique used by web audio apps (Spotify web, etc).
-// The silence is a 1-second base64-encoded MP3 of pure silence.
+// Chrome requires an actual <audio> element to be playing to show lock screen
+// controls via the Media Session API. We use a looping silent audio element.
 const SILENT_MP3='data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
-let silentAudioEl=null;
+
+// Create the audio element once and reuse it
+const silentAudioEl = document.createElement('audio');
+silentAudioEl.src = SILENT_MP3;
+silentAudioEl.loop = true;
+silentAudioEl.volume = 0.001;
+document.body.appendChild(silentAudioEl);
 
 function startSilentAudio(){
-  if(silentAudioEl)return;
-  try{
-    silentAudioEl=new Audio(SILENT_MP3);
-    silentAudioEl.loop=true;
-    silentAudioEl.volume=0.001;
-    silentAudioEl.play().catch(()=>{});
-  }catch(e){}
+  silentAudioEl.play().catch(()=>{});
 }
 function stopSilentAudio(){
-  try{if(silentAudioEl){silentAudioEl.pause();silentAudioEl.src='';silentAudioEl=null;}}catch(e){}
+  silentAudioEl.pause();
+  silentAudioEl.currentTime=0;
 }
 
 // ─── LISTENING TIME TRACKER ───────────────────────────────────────────────────
@@ -554,7 +553,7 @@ function signOut(){
 }
 
 // ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
-let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:false};
+let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true};
 let saveTimer=null, syncing=false, localUpdatedAt=0;
 
 async function loadFromServer(){
@@ -569,7 +568,7 @@ async function loadFromServer(){
     if(serverTs>=localUpdatedAt){
       patterns=data.patterns||[];
       active=data.active||[];
-      cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:false},data.cfg||{});
+      cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:true},data.cfg||{});
       localUpdatedAt=serverTs;
     }
     setSyncState('ok');
@@ -1087,33 +1086,39 @@ function exportData(){const blob=new Blob([JSON.stringify({patterns,active,cfg,e
 // ─── MODAL BG DISMISS ────────────────────────────────────────────────────────
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
 
+// ─── SAVE BEFORE LEAVING ──────────────────────────────────────────────────────
+// If there's a pending debounced save when the user closes/switches app, flush it now.
+window.addEventListener('beforeunload',()=>{
+  if(saveTimer){clearTimeout(saveTimer);saveToServer();}
+});
+// Also save on visibility hidden (catches Android app-switch better than beforeunload)
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'&&saveTimer){
+    clearTimeout(saveTimer);saveToServer();
+  }
+});
+
 // ─── AUTO-REFRESH ON APP FOCUS ────────────────────────────────────────────────
-// Three triggers: visibilitychange (tab switch), focus (window focus),
-// and a periodic poll every 30s. Android doesn't always fire visibilitychange
-// reliably when returning from another app, so the poll is the safety net.
 let lastFetchAt = 0;
 
 async function refreshIfStale() {
   if (!token || playing) return;
   const now = Date.now();
-  if (now - lastFetchAt < 15000) return; // don't re-fetch within 15s
+  if (now - lastFetchAt < 15000) return;
   lastFetchAt = now;
   await loadFromServer();
   const s = document.querySelector('.screen.active')?.id;
   if (s === 'home-screen') renderHome();
   if (s === 'library-screen') renderLibrary();
-  if (s === 'map-screen' && curPid) openMapScreen(curPid);
+  if (s === 'map-screen' && curPid) openMapScreen(curPid, mapFromScreen); // preserve context
 }
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') refreshIfStale();
 });
 window.addEventListener('focus', () => refreshIfStale());
-
-// Poll every 30 seconds as fallback for Android PWA
 setInterval(() => refreshIfStale(), 30000);
 
-// Track fetch time in loadFromServer
 const _origLoad = loadFromServer;
 loadFromServer = async function() {
   lastFetchAt = Date.now();
