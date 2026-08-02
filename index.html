@@ -473,15 +473,16 @@ function trackingStop(){
   if(!listenStart)return;
   const secs=Math.round((Date.now()-listenStart)/1000);
   listenStart=null;
-  if(secs<2)return; // ignore blips
+  if(secs<2)return;
   const today=new Date().toISOString().slice(0,10);
-  const stats=JSON.parse(localStorage.getItem('weza_stats')||'{}');
-  stats[today]=(stats[today]||0)+secs;
-  stats._total=(stats._total||0)+secs;
-  localStorage.setItem('weza_stats',JSON.stringify(stats));
+  // Store in cfg.stats so it syncs to server with the next persist()
+  if(!cfg.stats) cfg.stats={};
+  cfg.stats[today]=(cfg.stats[today]||0)+secs;
+  cfg.stats._total=(cfg.stats._total||0)+secs;
+  persist(); // save stats to server
 }
 function getListenStats(){
-  const stats=JSON.parse(localStorage.getItem('weza_stats')||'{}');
+  const stats=cfg.stats||{};
   const today=new Date().toISOString().slice(0,10);
   const todaySecs=stats[today]||0;
   const totalSecs=stats._total||0;
@@ -831,7 +832,7 @@ function resumePlayback(){
 
 function pausePlayback(){
   synth.cancel();
-  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();teardownMediaSession();
   document.getElementById('tts-status').textContent='Paused — tap to resume';
 }
 
@@ -848,7 +849,7 @@ function speakChunk(){
 }
 
 function onPlaybackEnd(){
-  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();teardownMediaSession();
   chunkIdx=0;chunks=[];
   updateScrubber(true);
   document.getElementById('chunk-info').textContent='';
@@ -857,8 +858,12 @@ function onPlaybackEnd(){
 }
 
 function stopAll(){
-  synth.cancel();playing=false;chunks=[];chunkIdx=0;setPlayIcon(false);releaseWake();stopSilentAudio();
+  synth.cancel();playing=false;chunks=[];chunkIdx=0;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();teardownMediaSession();
   previewPlaying=false;updatePreviewBtn();
+  const el=document.getElementById('tts-status');if(el)el.textContent='Tap play to listen';
+  updateScrubber(false);
+  document.getElementById('chunk-info').textContent='';
+}
   const el=document.getElementById('tts-status');if(el)el.textContent='Tap play to listen';
   updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
@@ -911,6 +916,8 @@ function setSpeed(r,btn){
 function setPlayIcon(p){document.getElementById('play-icon').innerHTML=p?'<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>':'<path d="M8 5v14l11-7z"/>'}
 
 // ─── MEDIA SESSION API (background / lock screen controls) ───────────────────
+// The silent audio element must be playing for Android to show notification controls.
+// We also set mediaSession.playbackState explicitly.
 function setupMediaSession(){
   if(!('mediaSession' in navigator))return;
   const pat=patterns.find(p=>p.id===curPid);
@@ -920,10 +927,15 @@ function setupMediaSession(){
     artist: pat?.name||'WEZA',
     album: 'WEZA Pattern Work'
   });
+  navigator.mediaSession.playbackState='playing';
   navigator.mediaSession.setActionHandler('play',()=>{resumePlayback()});
   navigator.mediaSession.setActionHandler('pause',()=>{pausePlayback()});
   navigator.mediaSession.setActionHandler('previoustrack',()=>{skipChunk(-1)});
   navigator.mediaSession.setActionHandler('nexttrack',()=>{skipChunk(1)});
+}
+function teardownMediaSession(){
+  if(!('mediaSession' in navigator))return;
+  navigator.mediaSession.playbackState='paused';
 }
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
