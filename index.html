@@ -349,6 +349,26 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
             <span class="srow-label" style="color:var(--red)">Sign out</span>
           </div>
         </div>
+        <div class="section-label">Listening</div>
+        <div class="sgroup">
+          <div class="srow">
+            <div style="flex:1">
+              <div class="srow-label">Today</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px" id="stats-today">0 min</div>
+            </div>
+            <div style="text-align:right">
+              <div class="srow-label">All time</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px" id="stats-total">0 hr 0 min</div>
+            </div>
+          </div>
+        </div>
+        <div class="section-label">App</div>
+        <div class="sgroup">
+          <div class="srow" style="cursor:pointer" id="install-row" onclick="triggerInstall()">
+            <span class="srow-label">Add to home screen</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="18" height="18" style="color:var(--muted)"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+          </div>
+        </div>
         <div class="section-label">Data</div>
         <div class="sgroup">
           <div class="srow" style="cursor:pointer" onclick="exportData()">
@@ -425,23 +445,73 @@ const WHEEL=[
   {id:12,name:'Growth & Learning',covers:'Personal development, learning, wisdom, skills, adaptability, transformation'}
 ];
 
-// ─── SILENT AUDIO LOOP (keeps browser audio session alive on lock screen) ─────
-// Plays a near-silent tone in a loop so Android doesn't suspend the audio context.
-let silentAudio=null;
+// ─── SILENT AUDIO LOOP (keeps Chrome audio session alive through screen lock) ──
+// An oscillator alone doesn't register as a media session on Android.
+// A looping Audio element with a tiny silent MP3 does — it's the standard
+// technique used by web audio apps (Spotify web, etc).
+// The silence is a 1-second base64-encoded MP3 of pure silence.
+const SILENT_MP3='data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTcuODMuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVQ==';
+let silentAudioEl=null;
+
 function startSilentAudio(){
-  if(silentAudio)return;
+  if(silentAudioEl)return;
   try{
-    const ctx=new(window.AudioContext||window.webkitAudioContext)();
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    gain.gain.value=0.001; // essentially silent
-    osc.connect(gain);gain.connect(ctx.destination);
-    osc.start();
-    silentAudio={ctx,osc,gain};
+    silentAudioEl=new Audio(SILENT_MP3);
+    silentAudioEl.loop=true;
+    silentAudioEl.volume=0.001;
+    silentAudioEl.play().catch(()=>{});
   }catch(e){}
 }
 function stopSilentAudio(){
-  try{if(silentAudio){silentAudio.osc.stop();silentAudio.ctx.close();silentAudio=null;}}catch(e){}
+  try{if(silentAudioEl){silentAudioEl.pause();silentAudioEl.src='';silentAudioEl=null;}}catch(e){}
+}
+
+// ─── LISTENING TIME TRACKER ───────────────────────────────────────────────────
+let listenStart=null; // timestamp when current chunk started
+
+function trackingStart(){listenStart=Date.now()}
+function trackingStop(){
+  if(!listenStart)return;
+  const secs=Math.round((Date.now()-listenStart)/1000);
+  listenStart=null;
+  if(secs<2)return; // ignore blips
+  const today=new Date().toISOString().slice(0,10);
+  const stats=JSON.parse(localStorage.getItem('weza_stats')||'{}');
+  stats[today]=(stats[today]||0)+secs;
+  stats._total=(stats._total||0)+secs;
+  localStorage.setItem('weza_stats',JSON.stringify(stats));
+}
+function getListenStats(){
+  const stats=JSON.parse(localStorage.getItem('weza_stats')||'{}');
+  const today=new Date().toISOString().slice(0,10);
+  const todaySecs=stats[today]||0;
+  const totalSecs=stats._total||0;
+  const fmt=(s)=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h} hr ${m} min`:`${m} min`};
+  return {today:fmt(todaySecs),total:fmt(totalSecs)};
+}
+function updateStatsDisplay(){
+  const s=getListenStats();
+  const t=document.getElementById('stats-today');const tt=document.getElementById('stats-total');
+  if(t)t.textContent=s.today;if(tt)tt.textContent=s.total;
+}
+
+// ─── INSTALL PROMPT (Add to Home Screen) ─────────────────────────────────────
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredInstallPrompt=e;
+  const row=document.getElementById('install-row');
+  if(row)row.style.display='flex';
+});
+async function triggerInstall(){
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    const result=await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+  } else {
+    // Fallback instructions for iOS / already installed
+    alert('To install:\n\nAndroid: tap the three-dot menu in Chrome → "Add to Home screen"\n\niPhone: tap the Share button in Safari → "Add to Home Screen"');
+  }
 }
 let token = localStorage.getItem('weza_token') || null;
 let userEmail = localStorage.getItem('weza_email') || null;
@@ -667,10 +737,12 @@ function openMapScreen(pid){
   </div><div class="section-label">Main session</div>`;
   html+=drow('M',pat.main.title,pid,0,done>0,done===0);
   if(pat.domains.length>0){html+='<div class="section-label">Domains</div>';pat.domains.forEach((d,i)=>{html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1)});}
-  // Buttons: if opted in → Drop only (edit lives in Library); if not opted in → Edit + Delete
+  // Opted in: Edit + Drop. Not opted in: Edit + Delete. Edit always present.
   if(ap){
-    html+=`<div style="height:20px"></div>
-      <button class="btn btn-danger" style="width:100%" onclick="optOutMap('${pid}')">Drop pattern</button>`;
+    html+=`<div style="height:20px"></div><div class="btn-row">
+      <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
+      <button class="btn btn-danger" onclick="optOutMap('${pid}')">Drop pattern</button>
+    </div>`;
   } else {
     html+=`<div style="height:20px"></div><div class="btn-row">
       <button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>
@@ -744,20 +816,19 @@ function startChunkedPlay(){
   chunks=splitChunks(scr.body);chunkIdx=0;
   playing=true;setPlayIcon(true);
   document.getElementById('tts-status').textContent='Playing…';
-  acquireWake();setupMediaSession();startSilentAudio();speakChunk();
+  acquireWake();setupMediaSession();startSilentAudio();trackingStart();speakChunk();
 }
 
 function resumePlayback(){
   playing=true;setPlayIcon(true);
   document.getElementById('tts-status').textContent='Playing…';
-  acquireWake();setupMediaSession();startSilentAudio();speakChunk();
+  acquireWake();setupMediaSession();startSilentAudio();trackingStart();speakChunk();
 }
 
 function pausePlayback(){
   synth.cancel();
-  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();
   document.getElementById('tts-status').textContent='Paused — tap to resume';
-  // Don't reset chunks or chunkIdx — preserves position
 }
 
 function speakChunk(){
@@ -768,12 +839,12 @@ function speakChunk(){
   if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
   updateScrubber();
   utt.onend=()=>{if(!playing)return;chunkIdx++;speakChunk()};
-  utt.onerror=(e)=>{if(e.error==='interrupted')return;playing=false;setPlayIcon(false);releaseWake();document.getElementById('tts-status').textContent='Stopped'};
+  utt.onerror=(e)=>{if(e.error==='interrupted')return;playing=false;setPlayIcon(false);releaseWake();trackingStop();document.getElementById('tts-status').textContent='Stopped'};
   synth.speak(utt);
 }
 
 function onPlaybackEnd(){
-  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();
+  playing=false;setPlayIcon(false);releaseWake();stopSilentAudio();trackingStop();
   chunkIdx=0;chunks=[];
   updateScrubber(true);
   document.getElementById('chunk-info').textContent='';
@@ -970,7 +1041,7 @@ function renderSettings(){
   document.getElementById('speed-slider').value=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(cfg.speed).toFixed(1)+'×';
   document.getElementById('toggle-screen').classList.toggle('on',cfg.keepScreen);
   document.getElementById('account-email').textContent=userEmail||'';
-  updateVoiceDisplay();
+  updateVoiceDisplay();updateStatsDisplay();
 }
 function updatePitch(v){cfg.pitch=parseFloat(v);document.getElementById('pitch-val').textContent=parseFloat(v).toFixed(2);persist()}
 function updateDefaultSpeed(v){cfg.speed=parseFloat(v);playRate=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(v).toFixed(1)+'×';persist()}
