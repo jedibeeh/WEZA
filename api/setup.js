@@ -11,9 +11,13 @@ export default async function handler(req, res) {
         id SERIAL PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'student',
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
+
+    // Add role column to existing tables if upgrading
+    await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'`;
 
     await sql`
       CREATE TABLE IF NOT EXISTS user_data (
