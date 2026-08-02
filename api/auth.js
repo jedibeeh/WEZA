@@ -31,21 +31,21 @@ export default async function handler(req, res) {
       }
       const hash = await bcrypt.hash(password, 10);
       const result = await sql`
-        INSERT INTO users (email, password_hash) VALUES (${emailClean}, ${hash}) RETURNING id
+        INSERT INTO users (email, password_hash, role) VALUES (${emailClean}, ${hash}, 'student') RETURNING id, role
       `;
       const userId = result.rows[0].id;
-      // Create empty data row for this user
+      const role = result.rows[0].role;
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg)
         VALUES (${userId}, '[]', '[]', '{}')
         ON CONFLICT (user_id) DO NOTHING
       `;
-      const token = jwt.sign({ userId, email: emailClean }, JWT_SECRET, { expiresIn: '90d' });
-      return res.status(201).json({ token, email: emailClean });
+      const token = jwt.sign({ userId, email: emailClean, role }, JWT_SECRET, { expiresIn: '90d' });
+      return res.status(201).json({ token, email: emailClean, role });
     }
 
     if (action === 'login') {
-      const result = await sql`SELECT id, password_hash FROM users WHERE email = ${emailClean}`;
+      const result = await sql`SELECT id, password_hash, role FROM users WHERE email = ${emailClean}`;
       if (result.rows.length === 0) {
         return res.status(401).json({ error: 'No account found with that email' });
       }
@@ -54,8 +54,9 @@ export default async function handler(req, res) {
       if (!valid) {
         return res.status(401).json({ error: 'Incorrect password' });
       }
-      const token = jwt.sign({ userId: user.id, email: emailClean }, JWT_SECRET, { expiresIn: '90d' });
-      return res.status(200).json({ token, email: emailClean });
+      const role = user.role || 'student';
+      const token = jwt.sign({ userId: user.id, email: emailClean, role }, JWT_SECRET, { expiresIn: '90d' });
+      return res.status(200).json({ token, email: emailClean, role });
     }
 
     return res.status(400).json({ error: 'action must be register or login' });
