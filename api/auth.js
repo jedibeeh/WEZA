@@ -1,6 +1,5 @@
 // api/auth.js
-// POST /api/auth  { action: 'register'|'login', email, password }
-// Returns { token } on success
+// POST /api/auth { action, email, password, name? }
 
 import { sql } from '@vercel/postgres';
 import bcrypt from 'bcryptjs';
@@ -9,54 +8,53 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'weza-change-this-secret-in-vercel-env';
 
 export default async function handler(req, res) {
-  // CORS headers for same-origin HTML requests
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { action, email, password } = req.body || {};
+  const { action, email, password, name } = req.body || {};
   if (!action || !email || !password) {
     return res.status(400).json({ error: 'action, email and password are required' });
   }
   const emailClean = email.trim().toLowerCase();
+  const nameClean = (name || '').trim();
 
   try {
     if (action === 'register') {
-      // Check if already exists
       const existing = await sql`SELECT id FROM users WHERE email = ${emailClean}`;
       if (existing.rows.length > 0) {
         return res.status(409).json({ error: 'An account with that email already exists' });
       }
       const hash = await bcrypt.hash(password, 10);
       const result = await sql`
-        INSERT INTO users (email, password_hash, role) VALUES (${emailClean}, ${hash}, 'student') RETURNING id, role
+        INSERT INTO users (email, password_hash, name, role)
+        VALUES (${emailClean}, ${hash}, ${nameClean}, 'student')
+        RETURNING id, role, name
       `;
-      const userId = result.rows[0].id;
-      const role = result.rows[0].role;
+      const { id: userId, role, name: savedName } = result.rows[0];
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg)
         VALUES (${userId}, '[]', '[]', '{}')
         ON CONFLICT (user_id) DO NOTHING
       `;
-      const token = jwt.sign({ userId, email: emailClean, role }, JWT_SECRET, { expiresIn: '90d' });
-      return res.status(201).json({ token, email: emailClean, role });
+      const token = jwt.sign({ userId, email: emailClean, role, name: savedName }, JWT_SECRET, { expiresIn: '90d' });
+      return res.status(201).json({ token, email: emailClean, role, name: savedName });
     }
 
     if (action === 'login') {
-      const result = await sql`SELECT id, password_hash, role FROM users WHERE email = ${emailClean}`;
+      const result = await sql`SELECT id, password_hash, role, name FROM users WHERE email = ${emailClean}`;
       if (result.rows.length === 0) {
         return res.status(401).json({ error: 'No account found with that email' });
       }
       const user = result.rows[0];
       const valid = await bcrypt.compare(password, user.password_hash);
-      if (!valid) {
-        return res.status(401).json({ error: 'Incorrect password' });
-      }
+      if (!valid) return res.status(401).json({ error: 'Incorrect password' });
       const role = user.role || 'student';
-      const token = jwt.sign({ userId: user.id, email: emailClean, role }, JWT_SECRET, { expiresIn: '90d' });
-      return res.status(200).json({ token, email: emailClean, role });
+      const name = user.name || '';
+      const token = jwt.sign({ userId: user.id, email: emailClean, role, name }, JWT_SECRET, { expiresIn: '90d' });
+      return res.status(200).json({ token, email: emailClean, role, name });
     }
 
     return res.status(400).json({ error: 'action must be register or login' });

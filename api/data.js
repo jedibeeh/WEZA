@@ -1,14 +1,16 @@
 // api/data.js
-// GET  /api/data  → { patterns, active, cfg, updatedAt }
-// POST /api/data  { patterns, active, cfg, updatedAt }  → { ok: true }
-// Requires Authorization: Bearer <token>
+// GET  /api/data              → { patterns, active, cfg, updatedAt }
+// POST /api/data              → save active + cfg (+ patterns if practitioner)
+// GET  /api/data?users=1      → list of students (practitioner only)
+// POST /api/data?action=save_pattern  → upsert one pattern (practitioner only)
+// POST /api/data?action=delete_pattern { id } → delete pattern (practitioner only)
 
 import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'weza-change-this-secret-in-vercel-env';
 
-function getUserFromToken(req) {
+function getUser(req) {
   const auth = req.headers.authorization || '';
   const token = auth.replace('Bearer ', '').trim();
   if (!token) return null;
@@ -21,79 +23,136 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const user = getUserFromToken(req);
+  const user = getUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { userId, role } = user;
 
   try {
+    // ── GET /api/data?users=1  (practitioner: list students) ─────────────────
+    if (req.method === 'GET' && req.query.users) {
+      if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
+      const rows = await sql`SELECT id, name, email FROM users WHERE role = 'student' ORDER BY name`;
+      return res.status(200).json({ users: rows.rows });
+    }
+
+    // ── GET /api/data  (load patterns + active + cfg) ─────────────────────────
     if (req.method === 'GET') {
-      // Always fetch this user's own row for active + cfg
-      const personalResult = await sql`
-        SELECT patterns, active, cfg FROM user_data WHERE user_id = ${userId}
+      // Ensure user_data row exists
+      await sql`
+        INSERT INTO user_data (user_id, patterns, active, cfg)
+        VALUES (${userId}, '[]', '[]', '{}')
+        ON CONFLICT (user_id) DO NOTHING
       `;
-      if (personalResult.rows.length === 0) {
-        await sql`
-          INSERT INTO user_data (user_id, patterns, active, cfg)
-          VALUES (${userId}, '[]', '[]', '{}')
-          ON CONFLICT (user_id) DO NOTHING
-        `;
-        return res.status(200).json({ patterns: [], active: [], cfg: {}, updatedAt: 0 });
-      }
-      const personalRow = personalResult.rows[0];
+      const udRow = await sql`SELECT active, cfg FROM user_data WHERE user_id = ${userId}`;
+      const { active, cfg } = udRow.rows[0] || { active: [], cfg: {} };
 
-      // Patterns: practitioners serve their own; students get practitioner's patterns
-      let patterns = personalRow.patterns || [];
-      if (role !== 'practitioner') {
-        const r = await sql`
-          SELECT ud.patterns FROM user_data ud
-          JOIN users u ON u.id = ud.user_id
-          WHERE u.role = 'practitioner'
-          ORDER BY u.created_at ASC LIMIT 1
+      // Load patterns this user can see:
+      // practitioner: all their own patterns
+      // student: global patterns + patterns assigned to them
+      let patRows;
+      if (role === 'practitioner') {
+        patRows = await sql`
+          SELECT id, name, category, visibility, assigned_users, data
+          FROM patterns WHERE created_by = ${userId}
+          ORDER BY created_at ASC
         `;
-        patterns = r.rows[0]?.patterns || [];
+      } else {
+        patRows = await sql`
+          SELECT id, name, category, visibility, assigned_users, data
+          FROM patterns
+          WHERE visibility = 'global'
+             OR (visibility = 'private' AND ${userId} = ANY(assigned_users))
+          ORDER BY created_at ASC
+        `;
       }
 
-      const cfg = personalRow.cfg || {};
+      // Reconstruct pattern objects the frontend expects
+      const patterns = patRows.rows.map(r => ({
+        id: r.id,
+        name: r.name,
+        category: r.category,
+        visibility: r.visibility,
+        assignedUsers: r.assigned_users || [],
+        ...(r.data || {})
+      }));
+
+      const cfgObj = cfg || {};
       return res.status(200).json({
         patterns,
-        active: personalRow.active || [],
-        cfg,
-        updatedAt: cfg.updatedAt || 0
+        active: active || [],
+        cfg: cfgObj,
+        updatedAt: cfgObj.updatedAt || 0
       });
     }
 
-    if (req.method === 'POST') {
-      const { patterns, active, cfg, updatedAt } = req.body || {};
-      const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
+    // ── POST /api/data?action=save_pattern  (upsert one pattern) ─────────────
+    if (req.method === 'POST' && req.query.action === 'save_pattern') {
+      if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
+      const { id, name, category, visibility, assignedUsers, main, domains, createdAt } = req.body || {};
+      if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
-      if (role === 'practitioner') {
-        // Save everything — patterns, active, cfg
-        await sql`
-          INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-          VALUES (${userId}, ${JSON.stringify(patterns || [])}, ${JSON.stringify(active || [])}, ${JSON.stringify(cfgWithTs)}, NOW())
-          ON CONFLICT (user_id) DO UPDATE SET
-            patterns   = EXCLUDED.patterns,
-            active     = EXCLUDED.active,
-            cfg        = EXCLUDED.cfg,
-            updated_at = NOW()
-        `;
-      } else {
-        // Students: save only active + cfg, never overwrite patterns
-        await sql`
-          INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-          VALUES (${userId}, '[]', ${JSON.stringify(active || [])}, ${JSON.stringify(cfgWithTs)}, NOW())
-          ON CONFLICT (user_id) DO UPDATE SET
-            active     = EXCLUDED.active,
-            cfg        = EXCLUDED.cfg,
-            updated_at = NOW()
-        `;
+      // Strip out fields that go in dedicated columns; rest goes in data
+      const data = { main, domains, createdAt };
+
+      await sql`
+        INSERT INTO patterns (id, created_by, name, category, visibility, assigned_users, data, updated_at)
+        VALUES (${id}, ${userId}, ${name}, ${category||null}, ${visibility||'draft'}, ${JSON.stringify(assignedUsers||[])}, ${JSON.stringify(data)}, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+          name           = EXCLUDED.name,
+          category       = EXCLUDED.category,
+          visibility     = EXCLUDED.visibility,
+          assigned_users = EXCLUDED.assigned_users,
+          data           = EXCLUDED.data,
+          updated_at     = NOW()
+      `;
+
+      // Auto-opt-in assigned students
+      if (assignedUsers && assignedUsers.length > 0) {
+        for (const sid of assignedUsers) {
+          // Add to their active list if not already there
+          await sql`
+            UPDATE user_data
+            SET active = (
+              CASE
+                WHEN active @> ${JSON.stringify([{pid:id}])}::jsonb THEN active
+                ELSE active || ${JSON.stringify([{pid:id, progress:0, lastAt: Date.now()}])}::jsonb
+              END
+            )
+            WHERE user_id = ${sid}
+          `;
+        }
       }
+
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── POST /api/data?action=delete_pattern ─────────────────────────────────
+    if (req.method === 'POST' && req.query.action === 'delete_pattern') {
+      if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: 'id required' });
+      await sql`DELETE FROM patterns WHERE id = ${id} AND created_by = ${userId}`;
+      return res.status(200).json({ ok: true });
+    }
+
+    // ── POST /api/data  (save active + cfg) ───────────────────────────────────
+    if (req.method === 'POST') {
+      const { active, cfg, updatedAt } = req.body || {};
+      const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
+      await sql`
+        INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
+        VALUES (${userId}, '[]', ${JSON.stringify(active||[])}, ${JSON.stringify(cfgWithTs)}, NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          active     = EXCLUDED.active,
+          cfg        = EXCLUDED.cfg,
+          updated_at = NOW()
+      `;
       return res.status(200).json({ ok: true });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
     console.error('Data error:', err);
-    return res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: err.message });
   }
 }
