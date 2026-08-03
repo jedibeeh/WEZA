@@ -626,13 +626,24 @@ async function saveToServer(){
 }
 
 async function savePatternToServer(pat){
-  if(!token||userRole!=='practitioner')return;
+  if(!token||userRole!=='practitioner')return false;
   try{
     const res=await fetch('/api/data?action=save_pattern',{method:'POST',
       headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
       body:JSON.stringify(pat)});
-    if(!res.ok)setSyncState('error');
-  }catch(e){setSyncState('error')}
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok){
+      console.error('save_pattern failed:',res.status, json);
+      setSyncState('error');
+      return false;
+    }
+    console.log('save_pattern ok:', json);
+    return true;
+  }catch(e){
+    console.error('save_pattern exception:',e);
+    setSyncState('error');
+    return false;
+  }
 }
 
 async function deletePatternFromServer(id){
@@ -1197,7 +1208,8 @@ async function savePattern(){
   });
   const category=getSelectedCat();
   const visibility=selectedVis||'draft';
-  const assignedUsers=[...selectedStudents].map(Number);
+  // Ensure assignedUsers are plain integers, not strings
+  const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
   const pid=editPid||('p'+Date.now());
   const pat={
     id:pid, name,
@@ -1206,11 +1218,15 @@ async function savePattern(){
     domains:doms,
     createdAt:editPid?(patterns.find(p=>p.id===editPid)?.createdAt||Date.now()):Date.now()
   };
-  // Update local array
+  // Save to server FIRST — don't update local state until we know it worked
+  const ok=await savePatternToServer(pat);
+  if(!ok){
+    alert('Failed to save pattern. Check your connection and try again.');
+    return;
+  }
+  // Update local array after confirmed server save
   const idx=patterns.findIndex(p=>p.id===pid);
   if(idx>=0)patterns[idx]=pat; else patterns.push(pat);
-  // Save to server immediately
-  await savePatternToServer(pat);
   closePatternModal();
   renderLibrary();
   if(editPid)openMapScreen(pid,mapFromScreen);
