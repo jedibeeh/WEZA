@@ -345,9 +345,19 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         </div>
         <div class="section-label">Account</div>
         <div class="sgroup">
+          <div class="srow" style="flex-direction:column;align-items:stretch;gap:8px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span class="srow-label">Name</span>
+              <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="saveDisplayName()">Save</button>
+            </div>
+            <input type="text" id="account-name-input"
+              style="background:var(--bg);border:1px solid rgba(255,255,255,.1);border-radius:10px;
+                color:var(--text);font-family:var(--sans);font-size:15px;padding:10px 12px;outline:none;width:100%"
+              placeholder="Your name" oninput="document.getElementById('account-name-input').style.borderColor='var(--amber)'">
+          </div>
           <div class="srow">
             <div style="flex:1">
-              <div class="srow-label">Signed in as</div>
+              <div class="srow-label">Email</div>
               <div style="font-size:12px;color:var(--muted);margin-top:2px" id="account-email">—</div>
             </div>
           </div>
@@ -423,7 +433,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
       <button type="button" class="vis-btn" data-vis="private" onclick="selectVis('private')">Private</button>
     </div>
     <div id="pm-assign-section" style="display:none">
-      <label>Assign to students</label>
+      <label>Assign to clients</label>
       <div id="pm-student-list" style="margin-bottom:14px"></div>
     </div>
     <label>Main session script</label>
@@ -731,57 +741,97 @@ function renderHome(){
 }
 
 // ─── LIBRARY ──────────────────────────────────────────────────────────────────
-let libFilter=null; // null = all, number = category id
+let libVisTab='all'; // 'all' | 'draft' | 'global' | 'private'
+let libClientFilter=null; // student/client user id for filtering private tab
+let libCatFilter=null;
 
-function renderLibFilter(){
+function renderLibraryTabs(){
   const el=document.getElementById('lib-filter');if(!el)return;
-  const used=new Set(patterns.map(p=>p.category).filter(Boolean));
-  let html=`<button class="filt-pill${!libFilter?' active':''}" onclick="setLibFilter(null)">All</button>`;
-  WHEEL.forEach(w=>{
-    if(used.has(w.id)) html+=`<button class="filt-pill${libFilter===w.id?' active':''}" onclick="setLibFilter(${w.id})">${w.name}</button>`;
-  });
-  el.innerHTML=html;
+  if(userRole!=='practitioner'){el.innerHTML='';return}
+  const tabs=[
+    {id:'all',label:'All'},
+    {id:'draft',label:'Draft'},
+    {id:'global',label:'Global'},
+    {id:'private',label:'Private'}
+  ];
+  el.innerHTML=tabs.map(t=>`<button class="filt-pill${libVisTab===t.id?' active':''}" onclick="setLibVisTab('${t.id}')">${t.label}</button>`).join('');
 }
-function setLibFilter(id){libFilter=id;renderLibrary()}
+
+function setLibVisTab(tab){libVisTab=tab;libClientFilter=null;renderLibrary()}
 
 function renderLibrary(){
-  renderLibFilter();
+  renderLibraryTabs();
   const q=(document.getElementById('lib-search')?.value||'').toLowerCase();
   const list=document.getElementById('library-list');
-  let filt=patterns.filter(p=>(!q||p.name.toLowerCase().includes(q))&&(!libFilter||p.category===libFilter));
-  if(filt.length===0){list.innerHTML='<div class="empty"><p>No patterns yet.<br>Add your first one below.</p></div>';return}
+
+  // Filter patterns
+  let filt=patterns.filter(p=>{
+    if(q&&!p.name.toLowerCase().includes(q))return false;
+    if(userRole!=='practitioner')return true; // students see whatever server gave them
+    if(libVisTab==='all')return true;
+    return (p.visibility||'draft')===libVisTab;
+  });
+
+  // For private tab: show client sub-filter if there are multiple clients
+  let clientFilterHtml='';
+  if(userRole==='practitioner'&&libVisTab==='private'&&studentsList.length>0){
+    // Get unique assigned client ids across private patterns
+    const assignedIds=new Set(filt.flatMap(p=>p.assignedUsers||[]));
+    const assignedClients=studentsList.filter(s=>assignedIds.has(s.id)||assignedIds.has(String(s.id)));
+    if(assignedClients.length>1){
+      clientFilterHtml=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="filt-pill${!libClientFilter?' active':''}" onclick="setLibClientFilter(null)">All clients</button>
+        ${assignedClients.map(s=>`<button class="filt-pill${libClientFilter===s.id?' active':''}" onclick="setLibClientFilter(${s.id})">${s.name||s.email}</button>`).join('')}
+      </div>`;
+    }
+    if(libClientFilter){
+      filt=filt.filter(p=>(p.assignedUsers||[]).map(String).includes(String(libClientFilter)));
+    }
+  }
+
+  if(filt.length===0){
+    list.innerHTML=clientFilterHtml+`<div class="empty"><p>${libVisTab==='draft'?'No drafts yet.':libVisTab==='global'?'No global patterns yet.':libVisTab==='private'?'No private patterns yet.':'No patterns yet.'}<br>${userRole==='practitioner'?'Add your first one below.':''}</p></div>`;
+    return;
+  }
+
   // Group by category
   const grouped={};
-  filt.forEach(p=>{
-    const key=p.category||0;
-    if(!grouped[key])grouped[key]=[];
-    grouped[key].push(p);
-  });
-  let html='';
-  // Uncategorised first if any
-  if(grouped[0]){
-    grouped[0].forEach(p=>{ html+=patCard(p); });
-  }
-  // Then by wheel order
+  filt.forEach(p=>{const k=p.category||0;if(!grouped[k])grouped[k]=[];grouped[k].push(p)});
+  let html=clientFilterHtml;
+  if(grouped[0])grouped[0].forEach(p=>{html+=patCard(p)});
   WHEEL.forEach(w=>{
     if(!grouped[w.id])return;
     html+=`<div class="section-label">${w.name}</div>`;
-    grouped[w.id].forEach(p=>{ html+=patCard(p); });
+    grouped[w.id].forEach(p=>{html+=patCard(p)});
   });
   list.innerHTML=html;
 }
 
+function setLibClientFilter(id){libClientFilter=id;renderLibrary()}
+
 function patCard(p){
   const ap=active.find(a=>a.pid===p.id);
-  const total=1+p.domains.length,done=ap?ap.progress:0;
+  const total=1+(p.domains?.length||0),done=ap?ap.progress:0;
   const cat=p.category?WHEEL.find(w=>w.id===p.category):null;
   const vis=p.visibility||'draft';
-  const visBadge=userRole==='practitioner'?`<span class="vis-badge ${vis}">${vis}</span>`:'';
+  let badge='';
+  if(userRole==='practitioner'){
+    badge=`<span class="vis-badge ${vis}">${vis}</span> `;
+    if(vis==='private'&&(p.assignedUsers||[]).length>0){
+      const names=(p.assignedUsers||[]).map(id=>{
+        const s=studentsList.find(s=>String(s.id)===String(id));
+        return s?s.name||s.email:'?';
+      }).join(', ');
+      badge+=`<span style="font-size:10px;color:var(--muted)">→ ${names}</span>`;
+    }
+  }
   return `<div class="card" onclick="openMapScreen('${p.id}','library')"><div class="cb">
-    ${cat?`<div class="cat-tag">${cat.name}</div> `:''}${visBadge}
-    <div class="card-title" style="margin-top:4px">${p.name}</div>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+      ${cat?`<span class="cat-tag">${cat.name}</span>`:''}${badge}
+    </div>
+    <div class="card-title">${p.name}</div>
     <div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}
-      <span>${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</span>
+      <span>${total} scripts · ${p.domains?.length||0} domain${(p.domains?.length||0)!==1?'s':''}</span>
     </div>
   </div></div>`;
 }
@@ -1069,7 +1119,7 @@ function renderStudentPicker(preSelected=[]){
   selectedStudents=new Set(preSelected.map(String));
   const el=document.getElementById('pm-student-list');
   if(!el)return;
-  if(studentsList.length===0){el.innerHTML='<p style="font-size:13px;color:var(--muted)">No students signed up yet.</p>';return}
+  if(studentsList.length===0){el.innerHTML='<p style="font-size:13px;color:var(--muted)">No clients signed up yet.</p>';return}
   el.innerHTML=studentsList.map(s=>`
     <div class="student-check" onclick="toggleStudent('${s.id}')">
       <div class="toggle${selectedStudents.has(String(s.id))?' on':''}" id="sc-${s.id}"></div>
@@ -1183,9 +1233,26 @@ function renderSettings(){
   document.getElementById('speed-slider').value=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(cfg.speed).toFixed(1)+'×';
   document.getElementById('toggle-screen').classList.toggle('on',cfg.keepScreen);
   document.getElementById('account-email').textContent=userEmail||'';
+  const nameInput=document.getElementById('account-name-input');
+  if(nameInput){nameInput.value=userName||'';nameInput.style.borderColor='rgba(255,255,255,.1)'}
   updateVoiceDisplay();updateStatsDisplay();
 }
-function updatePitch(v){cfg.pitch=parseFloat(v);document.getElementById('pitch-val').textContent=parseFloat(v).toFixed(2);persist()}
+async function saveDisplayName(){
+  const input=document.getElementById('account-name-input');
+  const newName=(input?.value||'').trim();
+  if(!newName){alert('Please enter a name.');return}
+  try{
+    const res=await fetch('/api/users',{method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({name:newName})});
+    if(res.ok){
+      userName=newName;
+      localStorage.setItem('weza_name',userName);
+      input.style.borderColor='var(--sage)';
+      setTimeout(()=>{if(input)input.style.borderColor='rgba(255,255,255,.1)'},2000);
+    }
+  }catch(e){alert('Could not save name. Check your connection.')}
+}
 function updateDefaultSpeed(v){cfg.speed=parseFloat(v);playRate=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(v).toFixed(1)+'×';persist()}
 function toggleKeepScreen(btn){cfg.keepScreen=!cfg.keepScreen;btn.classList.toggle('on',cfg.keepScreen);persist()}
 function updateVoiceDisplay(){const el=document.getElementById('voice-name');if(!el)return;if(voices.length===0){el.textContent='Default device voice';return}const v=voices[cfg.voiceIdx%voices.length];el.textContent=v?`${v.name} (${v.lang})`:'Default'}
