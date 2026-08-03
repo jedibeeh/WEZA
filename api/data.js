@@ -54,14 +54,13 @@ export default async function handler(req, res) {
           ORDER BY created_at ASC
         `;
       } else {
-        // assigned_users is now JSONB array of integers e.g. [3, 7]
-        // Check if this userId appears in the array
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
           WHERE visibility = 'global'
+             OR visibility = 'global+private'
              OR (
-               visibility = 'private'
+               visibility IN ('private', 'global+private')
                AND assigned_users @> ${JSON.stringify([Number(userId)])}::jsonb
              )
           ORDER BY created_at ASC
