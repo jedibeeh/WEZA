@@ -54,8 +54,8 @@ export default async function handler(req, res) {
           ORDER BY created_at ASC
         `;
       } else {
-        // Client: global patterns OR private patterns where userId appears in assigned_users JSONB array
-        // Cast userId to text for JSONB containment since JSONB numbers match JS numbers
+        // assigned_users is now JSONB array of integers e.g. [3, 7]
+        // Check if this userId appears in the array
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
@@ -92,13 +92,10 @@ export default async function handler(req, res) {
       const { id, name, category, visibility, assignedUsers, main, domains, createdAt } = req.body || {};
       if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
-      // Always store assignedUsers as JSONB array of plain integers
       const assignedInts = (assignedUsers || []).map(Number).filter(n => !isNaN(n) && n > 0);
-      const assignedJson = JSON.stringify(assignedInts);
       const dataJson = JSON.stringify({ main, domains, createdAt });
 
-      console.log(`save_pattern: id=${id} visibility=${visibility} assignedInts=${assignedJson}`);
-
+      // assigned_users column is JSONB — pass as jsonb literal
       await sql`
         INSERT INTO patterns (id, created_by, name, category, visibility, assigned_users, data, updated_at)
         VALUES (
@@ -107,7 +104,7 @@ export default async function handler(req, res) {
           ${name},
           ${category || null},
           ${visibility || 'draft'},
-          ${assignedJson}::jsonb,
+          ${JSON.stringify(assignedInts)}::jsonb,
           ${dataJson}::jsonb,
           NOW()
         )
@@ -120,10 +117,6 @@ export default async function handler(req, res) {
           updated_at     = NOW()
       `;
 
-      // Verify it was saved
-      const check = await sql`SELECT id, visibility, assigned_users FROM patterns WHERE id = ${id}`;
-      console.log(`after save: ${JSON.stringify(check.rows[0])}`);
-
       // Auto-opt-in assigned clients
       for (const sid of assignedInts) {
         await sql`
@@ -134,7 +127,6 @@ export default async function handler(req, res) {
         const existing = await sql`SELECT active FROM user_data WHERE user_id = ${sid}`;
         const activeArr = Array.isArray(existing.rows[0]?.active) ? existing.rows[0].active : [];
         const alreadyIn = activeArr.some(a => a.pid === id);
-        console.log(`client ${sid} alreadyIn=${alreadyIn} activeArr=${JSON.stringify(activeArr)}`);
         if (!alreadyIn) {
           const updated = [...activeArr, { pid: id, progress: 0, lastAt: Date.now() }];
           await sql`
@@ -145,7 +137,7 @@ export default async function handler(req, res) {
         }
       }
 
-      return res.status(200).json({ ok: true, saved: check.rows[0] });
+      return res.status(200).json({ ok: true });
     }
 
     // ── POST /api/data?action=delete_pattern ──────────────────────────────────
@@ -157,7 +149,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    // ── POST /api/data  (save active + cfg) ───────────────────────────────────
+    // ── POST /api/data (save active + cfg) ────────────────────────────────────
     if (req.method === 'POST') {
       const { active, cfg, updatedAt } = req.body || {};
       const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
