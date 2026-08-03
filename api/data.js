@@ -24,10 +24,9 @@ export default async function handler(req, res) {
 
   try {
 
-    // ── GET /api/data?users=1  (practitioner: list clients) ──────────────────
+    // ── GET /api/data?users=1 ─────────────────────────────────────────────────
     if (req.method === 'GET' && req.query.users) {
       if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
-      // Include all non-practitioner accounts regardless of exact role value
       const rows = await sql`
         SELECT id, name, email FROM users
         WHERE role != 'practitioner'
@@ -48,7 +47,6 @@ export default async function handler(req, res) {
 
       let patRows;
       if (role === 'practitioner') {
-        // Practitioner sees ALL their own patterns (draft, global, private)
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
@@ -56,14 +54,15 @@ export default async function handler(req, res) {
           ORDER BY created_at ASC
         `;
       } else {
-        // Client sees: global patterns + private patterns where their id is in assigned_users (stored as JSONB)
+        // Client: global patterns OR private patterns where userId appears in assigned_users JSONB array
+        // Cast userId to text for JSONB containment since JSONB numbers match JS numbers
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
           WHERE visibility = 'global'
              OR (
                visibility = 'private'
-               AND assigned_users @> ${JSON.stringify([userId])}::jsonb
+               AND assigned_users @> ${JSON.stringify([Number(userId)])}::jsonb
              )
           ORDER BY created_at ASC
         `;
@@ -93,17 +92,23 @@ export default async function handler(req, res) {
       const { id, name, category, visibility, assignedUsers, main, domains, createdAt } = req.body || {};
       if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
-      // Store assignedUsers as JSONB array of integers
-      const assignedInts = (assignedUsers || []).map(Number).filter(Boolean);
-      const data = { main, domains, createdAt };
+      // Always store assignedUsers as JSONB array of plain integers
+      const assignedInts = (assignedUsers || []).map(Number).filter(n => !isNaN(n) && n > 0);
+      const assignedJson = JSON.stringify(assignedInts);
+      const dataJson = JSON.stringify({ main, domains, createdAt });
+
+      console.log(`save_pattern: id=${id} visibility=${visibility} assignedInts=${assignedJson}`);
 
       await sql`
         INSERT INTO patterns (id, created_by, name, category, visibility, assigned_users, data, updated_at)
         VALUES (
-          ${id}, ${userId}, ${name}, ${category||null},
-          ${visibility||'draft'},
-          ${JSON.stringify(assignedInts)}::jsonb,
-          ${JSON.stringify(data)}::jsonb,
+          ${id},
+          ${userId},
+          ${name},
+          ${category || null},
+          ${visibility || 'draft'},
+          ${assignedJson}::jsonb,
+          ${dataJson}::jsonb,
           NOW()
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -115,32 +120,32 @@ export default async function handler(req, res) {
           updated_at     = NOW()
       `;
 
-      // Auto-opt-in assigned clients — add to their active list if not already present
-      if (assignedInts.length > 0) {
-        for (const sid of assignedInts) {
-          // Ensure user_data row exists for this client
+      // Verify it was saved
+      const check = await sql`SELECT id, visibility, assigned_users FROM patterns WHERE id = ${id}`;
+      console.log(`after save: ${JSON.stringify(check.rows[0])}`);
+
+      // Auto-opt-in assigned clients
+      for (const sid of assignedInts) {
+        await sql`
+          INSERT INTO user_data (user_id, patterns, active, cfg)
+          VALUES (${sid}, '[]', '[]', '{}')
+          ON CONFLICT (user_id) DO NOTHING
+        `;
+        const existing = await sql`SELECT active FROM user_data WHERE user_id = ${sid}`;
+        const activeArr = Array.isArray(existing.rows[0]?.active) ? existing.rows[0].active : [];
+        const alreadyIn = activeArr.some(a => a.pid === id);
+        console.log(`client ${sid} alreadyIn=${alreadyIn} activeArr=${JSON.stringify(activeArr)}`);
+        if (!alreadyIn) {
+          const updated = [...activeArr, { pid: id, progress: 0, lastAt: Date.now() }];
           await sql`
-            INSERT INTO user_data (user_id, patterns, active, cfg)
-            VALUES (${sid}, '[]', '[]', '{}')
-            ON CONFLICT (user_id) DO NOTHING
+            UPDATE user_data
+            SET active = ${JSON.stringify(updated)}::jsonb
+            WHERE user_id = ${sid}
           `;
-          // Only add if not already in their active list
-          // We check by reading first, then updating if needed
-          const existing = await sql`SELECT active FROM user_data WHERE user_id = ${sid}`;
-          const activeArr = existing.rows[0]?.active || [];
-          const alreadyIn = activeArr.some(a => a.pid === id);
-          if (!alreadyIn) {
-            const newEntry = { pid: id, progress: 0, lastAt: Date.now() };
-            const updated = [...activeArr, newEntry];
-            await sql`
-              UPDATE user_data SET active = ${JSON.stringify(updated)}::jsonb
-              WHERE user_id = ${sid}
-            `;
-          }
         }
       }
 
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true, saved: check.rows[0] });
     }
 
     // ── POST /api/data?action=delete_pattern ──────────────────────────────────
@@ -158,7 +163,7 @@ export default async function handler(req, res) {
       const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-        VALUES (${userId}, '[]', ${JSON.stringify(active||[])}::jsonb, ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
+        VALUES (${userId}, '[]', ${JSON.stringify(active || [])}::jsonb, ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
           active     = EXCLUDED.active,
           cfg        = EXCLUDED.cfg,
