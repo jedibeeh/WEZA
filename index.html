@@ -229,8 +229,6 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         </div>
         <div class="lib-filter" id="lib-filter"></div>
         <div id="library-list"></div>
-        <div style="height:12px"></div>
-        <button class="btn btn-primary" id="new-pattern-btn" style="width:100%" onclick="openNewPatternModal()">+ New pattern map</button>
       </div>
     </div>
 
@@ -418,6 +416,16 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
   </nav>
 </div>
 
+<!-- FAB: New pattern — only shown on Library screen for practitioners -->
+<button id="new-pattern-btn" onclick="openNewPatternModal()"
+  style="display:none;position:fixed;bottom:90px;right:20px;width:52px;height:52px;
+    border-radius:50%;background:var(--amber);border:none;color:#141414;
+    font-size:28px;font-weight:300;cursor:pointer;z-index:150;
+    box-shadow:0 4px 20px rgba(200,151,90,0.45);
+    display:none;align-items:center;justify-content:center;
+    transition:transform .15s,opacity .15s"
+  aria-label="New pattern map">+</button>
+
 <!-- PATTERN MODAL -->
 <div class="overlay" id="pattern-modal">
   <div class="modal">
@@ -426,15 +434,27 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
     <input type="text" id="pm-name" placeholder="e.g. Toxic dynamics — Not enough">
     <label>Category</label>
     <div id="pm-category-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
-    <label>Visibility</label>
-    <div style="display:flex;gap:8px;margin-bottom:14px" id="pm-vis-row">
-      <button type="button" class="vis-btn selected" data-vis="draft" onclick="selectVis('draft')">Draft</button>
-      <button type="button" class="vis-btn" data-vis="global" onclick="selectVis('global')">Global</button>
-      <button type="button" class="vis-btn" data-vis="private" onclick="selectVis('private')">Private</button>
+
+    <label>Sharing</label>
+    <div style="background:var(--bg);border-radius:10px;border:1px solid rgba(255,255,255,.08);margin-bottom:14px;overflow:hidden">
+      <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="flex:1">
+          <div style="font-size:14px;color:var(--text)">Global library</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Visible to all users — anyone can opt in</div>
+        </div>
+        <button type="button" class="toggle" id="pm-global-toggle" onclick="toggleGlobal()"></button>
+      </div>
+      <div style="display:flex;align-items:center;padding:12px 14px">
+        <div style="flex:1">
+          <div style="font-size:14px;color:var(--text)">Assign to clients</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Auto-opts selected clients in immediately</div>
+        </div>
+        <button type="button" class="toggle" id="pm-assign-toggle" onclick="toggleAssign()"></button>
+      </div>
     </div>
-    <div id="pm-assign-section" style="display:none">
-      <label>Assign to clients</label>
-      <div id="pm-student-list" style="margin-bottom:14px"></div>
+    <div id="pm-assign-section" style="display:none;margin-bottom:14px">
+      <label>Select clients</label>
+      <div id="pm-student-list"></div>
     </div>
     <label>Main session script</label>
     <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
@@ -506,17 +526,22 @@ function trackingStop(){
   listenStart=null;
   if(secs<2)return;
   const today=new Date().toISOString().slice(0,10);
-  // Store in cfg.stats so it syncs to server with the next persist()
-  if(!cfg.stats) cfg.stats={};
+  if(!cfg.stats)cfg.stats={};
   cfg.stats[today]=(cfg.stats[today]||0)+secs;
-  cfg.stats._total=(cfg.stats._total||0)+secs;
-  persist(); // save stats to server
+  // Recompute _total from all date keys every time (never stale)
+  cfg.stats._total=Object.entries(cfg.stats)
+    .filter(([k])=>k!=='_total')
+    .reduce((sum,[,v])=>sum+v,0);
+  persist();
 }
 function getListenStats(){
   const stats=cfg.stats||{};
   const today=new Date().toISOString().slice(0,10);
   const todaySecs=stats[today]||0;
-  const totalSecs=stats._total||0;
+  // All-time = sum of all date keys (excluding _total meta key)
+  const totalSecs=Object.entries(stats)
+    .filter(([k])=>k!=='_total')
+    .reduce((sum,[,v])=>sum+v,0);
   const fmt=(s)=>{const h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return h>0?`${h} hr ${m} min`:`${m} min`};
   return {today:fmt(todaySecs),total:fmt(totalSecs)};
 }
@@ -687,7 +712,6 @@ async function initApp(){
   await loadFromServer();
   document.getElementById('account-email').textContent=userEmail||'';
   const isPractitioner=userRole==='practitioner';
-  document.getElementById('new-pattern-btn').style.display=isPractitioner?'block':'none';
   if(isPractitioner) await loadStudents();
   loadVoices();
   renderHome();
@@ -718,6 +742,9 @@ function showScreen(n){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(n+'-screen').classList.add('active');
   const nb=document.getElementById('nav-'+n);if(nb)nb.classList.add('active');
+  // FAB: only on library screen for practitioners
+  const fab=document.getElementById('new-pattern-btn');
+  if(fab)fab.style.display=(n==='library'&&userRole==='practitioner')?'flex':'none';
   if(n==='home')renderHome();
   if(n==='library')renderLibrary();
   if(n==='settings')renderSettings();
@@ -778,9 +805,13 @@ function renderLibrary(){
   // Filter patterns
   let filt=patterns.filter(p=>{
     if(q&&!p.name.toLowerCase().includes(q))return false;
-    if(userRole!=='practitioner')return true; // students see whatever server gave them
+    if(userRole!=='practitioner')return true;
+    const vis=p.visibility||'draft';
     if(libVisTab==='all')return true;
-    return (p.visibility||'draft')===libVisTab;
+    if(libVisTab==='global')return vis==='global'||vis==='global+private';
+    if(libVisTab==='private')return vis==='private'||vis==='global+private';
+    if(libVisTab==='draft')return vis==='draft';
+    return true;
   });
 
   // For private tab: show client sub-filter if there are multiple clients
@@ -827,8 +858,12 @@ function patCard(p){
   const vis=p.visibility||'draft';
   let badge='';
   if(userRole==='practitioner'){
-    badge=`<span class="vis-badge ${vis}">${vis}</span> `;
-    if(vis==='private'&&(p.assignedUsers||[]).length>0){
+    if(vis==='global+private'){
+      badge=`<span class="vis-badge global">global</span> <span class="vis-badge private">assigned</span> `;
+    } else {
+      badge=`<span class="vis-badge ${vis}">${vis==='draft'?'draft':vis}</span> `;
+    }
+    if((p.assignedUsers||[]).length>0){
       const names=(p.assignedUsers||[]).map(id=>{
         const s=studentsList.find(s=>String(s.id)===String(id));
         return s?s.name||s.email:'?';
@@ -1117,13 +1152,26 @@ function toggleOptIn(pid){
 
 // ─── PATTERN MODAL ────────────────────────────────────────────────────────────
 // ─── VISIBILITY UI ────────────────────────────────────────────────────────────
-let selectedVis='draft';
+let isGlobal=false;
+let hasAssignments=false;
 let selectedStudents=new Set();
 
-function selectVis(v){
-  selectedVis=v;
-  document.querySelectorAll('.vis-btn').forEach(b=>b.classList.toggle('selected',b.dataset.vis===v));
-  document.getElementById('pm-assign-section').style.display=v==='private'?'block':'none';
+function toggleGlobal(){
+  isGlobal=!isGlobal;
+  document.getElementById('pm-global-toggle').classList.toggle('on',isGlobal);
+}
+function toggleAssign(){
+  hasAssignments=!hasAssignments;
+  document.getElementById('pm-assign-toggle').classList.toggle('on',hasAssignments);
+  document.getElementById('pm-assign-section').style.display=hasAssignments?'block':'none';
+}
+
+// Derive visibility string for display/filtering
+function deriveVisibility(global,assigned){
+  if(global&&assigned.length>0) return 'global+private';
+  if(global) return 'global';
+  if(assigned.length>0) return 'private';
+  return 'draft';
 }
 
 function renderStudentPicker(preSelected=[]){
@@ -1150,14 +1198,16 @@ function toggleStudent(id){
 }
 
 function openNewPatternModal(){
-  editPid=null;domN=0;selectedVis='draft';selectedStudents=new Set();
+  editPid=null;domN=0;isGlobal=false;hasAssignments=false;selectedStudents=new Set();
   document.getElementById('pm-title').textContent='New pattern map';
   document.getElementById('pm-name').value='';
   document.getElementById('pm-main').value='';
   document.getElementById('domain-inputs').innerHTML='';
   buildCatPicker(null);
   document.getElementById('pm-category-picker').dataset.selected='';
-  selectVis('draft');
+  document.getElementById('pm-global-toggle').classList.remove('on');
+  document.getElementById('pm-assign-toggle').classList.remove('on');
+  document.getElementById('pm-assign-section').style.display='none';
   renderStudentPicker([]);
   addDomainInput();
   document.getElementById('pattern-modal').classList.add('open');
@@ -1166,14 +1216,21 @@ function openNewPatternModal(){
 function openEditModal(pid){
   const pat=patterns.find(p=>p.id===pid);if(!pat)return;
   editPid=pid;domN=0;
+  // Derive toggle states from stored pattern
+  isGlobal=pat.isGlobal||pat.visibility==='global'||pat.visibility==='global+private';
+  const assigned=pat.assignedUsers||[];
+  hasAssignments=assigned.length>0;
+  selectedStudents=new Set(assigned.map(String));
   document.getElementById('pm-title').textContent='Edit pattern map';
   document.getElementById('pm-name').value=pat.name;
   document.getElementById('pm-main').value=pat.main?.body||'';
   document.getElementById('domain-inputs').innerHTML='';
   buildCatPicker(pat.category||null);
   document.getElementById('pm-category-picker').dataset.selected=pat.category||'';
-  selectVis(pat.visibility||'draft');
-  renderStudentPicker(pat.assignedUsers||[]);
+  document.getElementById('pm-global-toggle').classList.toggle('on',isGlobal);
+  document.getElementById('pm-assign-toggle').classList.toggle('on',hasAssignments);
+  document.getElementById('pm-assign-section').style.display=hasAssignments?'block':'none';
+  renderStudentPicker(assigned);
   pat.domains?.forEach(d=>addDomainInput(d.title,d.body));
   if(!pat.domains||pat.domains.length===0)addDomainInput();
   document.getElementById('pattern-modal').classList.add('open');
@@ -1207,9 +1264,9 @@ async function savePattern(){
     if(t&&bv)doms.push({title:t,body:bv});
   });
   const category=getSelectedCat();
-  const visibility=selectedVis||'draft';
-  // Ensure assignedUsers are plain integers, not strings
   const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
+  // Derive visibility — a pattern can be both global AND assigned
+  const visibility=deriveVisibility(isGlobal, assignedUsers);
   const pid=editPid||('p'+Date.now());
   const pat={
     id:pid, name,
