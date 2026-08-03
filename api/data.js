@@ -1,9 +1,4 @@
 // api/data.js
-// GET  /api/data              → { patterns, active, cfg, updatedAt }
-// POST /api/data              → save active + cfg (+ patterns if practitioner)
-// GET  /api/data?users=1      → list of students (practitioner only)
-// POST /api/data?action=save_pattern  → upsert one pattern (practitioner only)
-// POST /api/data?action=delete_pattern { id } → delete pattern (practitioner only)
 
 import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
@@ -28,16 +23,21 @@ export default async function handler(req, res) {
   const { userId, role } = user;
 
   try {
-    // ── GET /api/data?users=1  (practitioner: list students) ─────────────────
+
+    // ── GET /api/data?users=1  (practitioner: list clients) ──────────────────
     if (req.method === 'GET' && req.query.users) {
       if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
-      const rows = await sql`SELECT id, name, email FROM users WHERE role = 'student' ORDER BY name`;
+      // Include all non-practitioner accounts regardless of exact role value
+      const rows = await sql`
+        SELECT id, name, email FROM users
+        WHERE role != 'practitioner'
+        ORDER BY COALESCE(NULLIF(name,''), email)
+      `;
       return res.status(200).json({ users: rows.rows });
     }
 
-    // ── GET /api/data  (load patterns + active + cfg) ─────────────────────────
+    // ── GET /api/data ─────────────────────────────────────────────────────────
     if (req.method === 'GET') {
-      // Ensure user_data row exists
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg)
         VALUES (${userId}, '[]', '[]', '{}')
@@ -46,27 +46,29 @@ export default async function handler(req, res) {
       const udRow = await sql`SELECT active, cfg FROM user_data WHERE user_id = ${userId}`;
       const { active, cfg } = udRow.rows[0] || { active: [], cfg: {} };
 
-      // Load patterns this user can see:
-      // practitioner: all their own patterns
-      // student: global patterns + patterns assigned to them
       let patRows;
       if (role === 'practitioner') {
+        // Practitioner sees ALL their own patterns (draft, global, private)
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
-          FROM patterns WHERE created_by = ${userId}
+          FROM patterns
+          WHERE created_by = ${userId}
           ORDER BY created_at ASC
         `;
       } else {
+        // Client sees: global patterns + private patterns where their id is in assigned_users (stored as JSONB)
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
           WHERE visibility = 'global'
-             OR (visibility = 'private' AND ${userId} = ANY(assigned_users))
+             OR (
+               visibility = 'private'
+               AND assigned_users @> ${JSON.stringify([userId])}::jsonb
+             )
           ORDER BY created_at ASC
         `;
       }
 
-      // Reconstruct pattern objects the frontend expects
       const patterns = patRows.rows.map(r => ({
         id: r.id,
         name: r.name,
@@ -85,18 +87,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // ── POST /api/data?action=save_pattern  (upsert one pattern) ─────────────
+    // ── POST /api/data?action=save_pattern ────────────────────────────────────
     if (req.method === 'POST' && req.query.action === 'save_pattern') {
       if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
       const { id, name, category, visibility, assignedUsers, main, domains, createdAt } = req.body || {};
       if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
-      // Strip out fields that go in dedicated columns; rest goes in data
+      // Store assignedUsers as JSONB array of integers
+      const assignedInts = (assignedUsers || []).map(Number).filter(Boolean);
       const data = { main, domains, createdAt };
 
       await sql`
         INSERT INTO patterns (id, created_by, name, category, visibility, assigned_users, data, updated_at)
-        VALUES (${id}, ${userId}, ${name}, ${category||null}, ${visibility||'draft'}, ${JSON.stringify(assignedUsers||[])}, ${JSON.stringify(data)}, NOW())
+        VALUES (
+          ${id}, ${userId}, ${name}, ${category||null},
+          ${visibility||'draft'},
+          ${JSON.stringify(assignedInts)}::jsonb,
+          ${JSON.stringify(data)}::jsonb,
+          NOW()
+        )
         ON CONFLICT (id) DO UPDATE SET
           name           = EXCLUDED.name,
           category       = EXCLUDED.category,
@@ -106,27 +115,35 @@ export default async function handler(req, res) {
           updated_at     = NOW()
       `;
 
-      // Auto-opt-in assigned students
-      if (assignedUsers && assignedUsers.length > 0) {
-        for (const sid of assignedUsers) {
-          // Add to their active list if not already there
+      // Auto-opt-in assigned clients — add to their active list if not already present
+      if (assignedInts.length > 0) {
+        for (const sid of assignedInts) {
+          // Ensure user_data row exists for this client
           await sql`
-            UPDATE user_data
-            SET active = (
-              CASE
-                WHEN active @> ${JSON.stringify([{pid:id}])}::jsonb THEN active
-                ELSE active || ${JSON.stringify([{pid:id, progress:0, lastAt: Date.now()}])}::jsonb
-              END
-            )
-            WHERE user_id = ${sid}
+            INSERT INTO user_data (user_id, patterns, active, cfg)
+            VALUES (${sid}, '[]', '[]', '{}')
+            ON CONFLICT (user_id) DO NOTHING
           `;
+          // Only add if not already in their active list
+          // We check by reading first, then updating if needed
+          const existing = await sql`SELECT active FROM user_data WHERE user_id = ${sid}`;
+          const activeArr = existing.rows[0]?.active || [];
+          const alreadyIn = activeArr.some(a => a.pid === id);
+          if (!alreadyIn) {
+            const newEntry = { pid: id, progress: 0, lastAt: Date.now() };
+            const updated = [...activeArr, newEntry];
+            await sql`
+              UPDATE user_data SET active = ${JSON.stringify(updated)}::jsonb
+              WHERE user_id = ${sid}
+            `;
+          }
         }
       }
 
       return res.status(200).json({ ok: true });
     }
 
-    // ── POST /api/data?action=delete_pattern ─────────────────────────────────
+    // ── POST /api/data?action=delete_pattern ──────────────────────────────────
     if (req.method === 'POST' && req.query.action === 'delete_pattern') {
       if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
       const { id } = req.body || {};
@@ -141,7 +158,7 @@ export default async function handler(req, res) {
       const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
       await sql`
         INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-        VALUES (${userId}, '[]', ${JSON.stringify(active||[])}, ${JSON.stringify(cfgWithTs)}, NOW())
+        VALUES (${userId}, '[]', ${JSON.stringify(active||[])}::jsonb, ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
         ON CONFLICT (user_id) DO UPDATE SET
           active     = EXCLUDED.active,
           cfg        = EXCLUDED.cfg,
@@ -151,6 +168,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
+
   } catch (err) {
     console.error('Data error:', err);
     return res.status(500).json({ error: err.message });

@@ -1,11 +1,9 @@
-// api/setup.js — run once to create/upgrade tables
-// Visit https://weza-sigma.vercel.app/api/setup after deploying
+// api/setup.js — safe to run multiple times
 
 import { sql } from '@vercel/postgres';
 
 export default async function handler(req, res) {
   try {
-    // Users table
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -16,11 +14,9 @@ export default async function handler(req, res) {
         created_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
-    // Safe upgrades for existing tables
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'student'`;
     await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT NOT NULL DEFAULT ''`;
 
-    // User data table (active state + cfg per user)
     await sql`
       CREATE TABLE IF NOT EXISTS user_data (
         id SERIAL PRIMARY KEY,
@@ -33,7 +29,7 @@ export default async function handler(req, res) {
       )
     `;
 
-    // Patterns table — separate from user_data so visibility can be controlled
+    // patterns table — assigned_users stored as JSONB array of integer ids
     await sql`
       CREATE TABLE IF NOT EXISTS patterns (
         id TEXT PRIMARY KEY,
@@ -41,12 +37,24 @@ export default async function handler(req, res) {
         name TEXT NOT NULL,
         category INTEGER,
         visibility TEXT NOT NULL DEFAULT 'draft',
-        assigned_users INTEGER[] DEFAULT '{}',
+        assigned_users JSONB NOT NULL DEFAULT '[]',
         data JSONB NOT NULL DEFAULT '{}',
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
       )
     `;
+
+    // If assigned_users column was created as INTEGER[] previously, convert to JSONB
+    // This is safe — it will error silently if already JSONB
+    try {
+      await sql`
+        ALTER TABLE patterns
+        ALTER COLUMN assigned_users TYPE JSONB
+        USING to_jsonb(assigned_users)
+      `;
+    } catch(e) {
+      // Already JSONB or no rows — fine
+    }
 
     res.status(200).json({ ok: true, message: 'Tables ready' });
   } catch (err) {
