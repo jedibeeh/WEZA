@@ -584,14 +584,13 @@ let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true};
 let saveTimer=null, syncing=false, localUpdatedAt=0;
 
 async function loadFromServer(){
+  lastFetchAt=Date.now();
   setSyncState('syncing');
   try{
     const res=await fetch('/api/data',{headers:{Authorization:'Bearer '+token}});
     if(res.status===401){signOut();return}
     const data=await res.json();
     const serverTs=data.updatedAt||0;
-    // Only apply server data if it is newer than our last local edit.
-    // Prevents background polls from overwriting unsaved local changes.
     if(serverTs>=localUpdatedAt){
       patterns=data.patterns||[];
       active=data.active||[];
@@ -1229,44 +1228,32 @@ function exportData(){const blob=new Blob([JSON.stringify({patterns,active,cfg,e
 // ─── MODAL BG DISMISS ────────────────────────────────────────────────────────
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open')}));
 
-// ─── SAVE BEFORE LEAVING ──────────────────────────────────────────────────────
-// If there's a pending debounced save when the user closes/switches app, flush it now.
-window.addEventListener('beforeunload',()=>{
-  if(saveTimer){clearTimeout(saveTimer);saveToServer();}
-});
-// Also save on visibility hidden (catches Android app-switch better than beforeunload)
+// ─── VISIBILITY HANDLER ───────────────────────────────────────────────────────
+// Single handler covers both save-on-hide and refresh-on-show
+let lastFetchAt=0;
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='hidden'&&saveTimer){
-    clearTimeout(saveTimer);saveToServer();
+  if(document.visibilityState==='hidden'){
+    // Flush any pending save immediately
+    if(saveTimer){clearTimeout(saveTimer);saveToServer();}
+  } else {
+    // Refresh from server when returning to app
+    refreshIfStale();
   }
 });
+window.addEventListener('focus',()=>refreshIfStale());
+window.addEventListener('beforeunload',()=>{if(saveTimer){clearTimeout(saveTimer);saveToServer();}});
+setInterval(()=>refreshIfStale(),30000);
 
-// ─── AUTO-REFRESH ON APP FOCUS ────────────────────────────────────────────────
-let lastFetchAt = 0;
-
-async function refreshIfStale() {
-  if (!token || playing) return;
-  const now = Date.now();
-  if (now - lastFetchAt < 15000) return;
-  lastFetchAt = now;
+async function refreshIfStale(){
+  if(!token||playing)return;
+  const now=Date.now();
+  if(now-lastFetchAt<15000)return;
   await loadFromServer();
-  const s = document.querySelector('.screen.active')?.id;
-  if (s === 'home-screen') renderHome();
-  if (s === 'library-screen') renderLibrary();
-  if (s === 'map-screen' && curPid) openMapScreen(curPid, mapFromScreen); // preserve context
+  const s=document.querySelector('.screen.active')?.id;
+  if(s==='home-screen')renderHome();
+  if(s==='library-screen')renderLibrary();
+  if(s==='map-screen'&&curPid)openMapScreen(curPid,mapFromScreen);
 }
-
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') refreshIfStale();
-});
-window.addEventListener('focus', () => refreshIfStale());
-setInterval(() => refreshIfStale(), 30000);
-
-const _origLoad = loadFromServer;
-loadFromServer = async function() {
-  lastFetchAt = Date.now();
-  return _origLoad.apply(this, arguments);
-};
 </script>
 </body>
 </html>
