@@ -178,6 +178,16 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .lib-filter::-webkit-scrollbar{display:none}
 .filt-pill{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--muted);font-size:12px;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:var(--sans);white-space:nowrap;transition:all .15s;flex-shrink:0}
 .filt-pill.active{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
+.vis-btn{flex:1;background:var(--surface2);border:1px solid rgba(255,255,255,.08);color:var(--muted);font-size:13px;padding:8px;border-radius:10px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.vis-btn.selected{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
+.student-check{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer}
+.student-check:last-child{border-bottom:none}
+.student-name{flex:1;font-size:14px}
+.student-email{font-size:11px;color:var(--muted)}
+.vis-badge{font-size:10px;padding:2px 7px;border-radius:6px;font-family:var(--sans)}
+.vis-badge.draft{background:rgba(136,136,136,.15);color:var(--muted)}
+.vis-badge.global{background:rgba(122,158,138,.15);color:var(--sage)}
+.vis-badge.private{background:var(--a-soft);color:var(--amber)}
 </style>
 </head>
 <body>
@@ -187,6 +197,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
   <div class="auth-box">
     <h1>WEZA</h1>
     <div class="auth-sub" id="auth-sub">Sign in to your account</div>
+    <input type="text" id="auth-name" placeholder="Your name" autocomplete="name" style="display:none">
     <input type="email" id="auth-email" placeholder="Email address" autocomplete="email">
     <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
     <div class="auth-error" id="auth-error"></div>
@@ -405,6 +416,16 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
     <input type="text" id="pm-name" placeholder="e.g. Toxic dynamics — Not enough">
     <label>Category</label>
     <div id="pm-category-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+    <label>Visibility</label>
+    <div style="display:flex;gap:8px;margin-bottom:14px" id="pm-vis-row">
+      <button type="button" class="vis-btn selected" data-vis="draft" onclick="selectVis('draft')">Draft</button>
+      <button type="button" class="vis-btn" data-vis="global" onclick="selectVis('global')">Global</button>
+      <button type="button" class="vis-btn" data-vis="private" onclick="selectVis('private')">Private</button>
+    </div>
+    <div id="pm-assign-section" style="display:none">
+      <label>Assign to students</label>
+      <div id="pm-student-list" style="margin-bottom:14px"></div>
+    </div>
     <label>Main session script</label>
     <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
     <label>Domain scripts <span style="color:var(--dim);text-transform:none;font-size:10px;letter-spacing:0">(in order)</span></label>
@@ -515,41 +536,46 @@ async function triggerInstall(){
 }
 let token = localStorage.getItem('weza_token') || null;
 let userEmail = localStorage.getItem('weza_email') || null;
-let userRole = localStorage.getItem('weza_role') || 'student'; // 'practitioner' or 'student'
+let userRole = localStorage.getItem('weza_role') || 'student';
+let userName = localStorage.getItem('weza_name') || '';
 let authMode = 'login';
 
 function toggleAuthMode(){
   authMode = authMode==='login'?'register':'login';
-  document.getElementById('auth-sub').textContent = authMode==='login'?'Sign in to your account':'Create a new account';
-  document.getElementById('auth-submit').textContent = authMode==='login'?'Sign in':'Create account';
-  document.getElementById('auth-switch').textContent = authMode==='login'?'Don\'t have an account? Create one':'Already have an account? Sign in';
+  const isReg = authMode==='register';
+  document.getElementById('auth-sub').textContent = isReg?'Create a new account':'Sign in to your account';
+  document.getElementById('auth-submit').textContent = isReg?'Create account':'Sign in';
+  document.getElementById('auth-switch').textContent = isReg?'Already have an account? Sign in':'Don\'t have an account? Create one';
+  document.getElementById('auth-name').style.display = isReg?'block':'none';
   document.getElementById('auth-error').textContent = '';
 }
 
 async function submitAuth(){
   const email = document.getElementById('auth-email').value.trim();
   const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('auth-name').value.trim();
   const btn = document.getElementById('auth-submit');
   if(!email||!password){document.getElementById('auth-error').textContent='Email and password are required.';return}
+  if(authMode==='register'&&!name){document.getElementById('auth-error').textContent='Please enter your name.';return}
   btn.disabled=true; btn.textContent='Please wait…';
   document.getElementById('auth-error').textContent='';
   try{
-    const res = await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:authMode,email,password})});
+    const res = await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:authMode,email,password,name})});
     const data = await res.json();
     if(!res.ok){document.getElementById('auth-error').textContent=data.error||'Something went wrong.';btn.disabled=false;btn.textContent=authMode==='login'?'Sign in':'Create account';return}
-    token=data.token; userEmail=data.email;
-    userRole=data.role||'student';
+    token=data.token; userEmail=data.email; userRole=data.role||'student'; userName=data.name||'';
     localStorage.setItem('weza_token',token);
     localStorage.setItem('weza_email',userEmail);
     localStorage.setItem('weza_role',userRole);
+    localStorage.setItem('weza_name',userName);
     await initApp();
   }catch(e){document.getElementById('auth-error').textContent='Network error. Check your connection.';btn.disabled=false;btn.textContent=authMode==='login'?'Sign in':'Create account'}
 }
 
 function signOut(){
   if(!confirm('Sign out?'))return;
-  token=null;userEmail=null;
-  localStorage.removeItem('weza_token');localStorage.removeItem('weza_email');
+  token=null;userEmail=null;userRole='student';userName='';
+  ['weza_token','weza_email','weza_role','weza_name'].forEach(k=>localStorage.removeItem(k));
   location.reload();
 }
 
@@ -582,11 +608,40 @@ async function saveToServer(){
   syncing=true; setSyncState('syncing');
   const ts=Date.now(); localUpdatedAt=ts;
   try{
+    // Active state + cfg only — patterns live in their own table now
     await fetch('/api/data',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-      body:JSON.stringify({patterns,active,cfg,updatedAt:ts})});
+      body:JSON.stringify({active,cfg,updatedAt:ts})});
     setSyncState('ok');
   }catch(e){setSyncState('error')}
   syncing=false;
+}
+
+async function savePatternToServer(pat){
+  if(!token||userRole!=='practitioner')return;
+  try{
+    const res=await fetch('/api/data?action=save_pattern',{method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify(pat)});
+    if(!res.ok)setSyncState('error');
+  }catch(e){setSyncState('error')}
+}
+
+async function deletePatternFromServer(id){
+  if(!token||userRole!=='practitioner')return;
+  try{
+    await fetch('/api/data?action=delete_pattern',{method:'POST',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify({id})});
+  }catch(e){setSyncState('error')}
+}
+
+let studentsList=[];
+async function loadStudents(){
+  if(userRole!=='practitioner')return;
+  try{
+    const res=await fetch('/api/data?users=1',{headers:{Authorization:'Bearer '+token}});
+    if(res.ok){const d=await res.json();studentsList=d.users||[];}
+  }catch(e){}
 }
 
 function persist(){
@@ -611,9 +666,9 @@ async function initApp(){
   document.getElementById('app').style.display='flex';
   await loadFromServer();
   document.getElementById('account-email').textContent=userEmail||'';
-  // Role-based UI: students cannot create or edit patterns
   const isPractitioner=userRole==='practitioner';
   document.getElementById('new-pattern-btn').style.display=isPractitioner?'block':'none';
+  if(isPractitioner) await loadStudents();
   loadVoices();
   renderHome();
 }
@@ -721,9 +776,11 @@ function patCard(p){
   const ap=active.find(a=>a.pid===p.id);
   const total=1+p.domains.length,done=ap?ap.progress:0;
   const cat=p.category?WHEEL.find(w=>w.id===p.category):null;
+  const vis=p.visibility||'draft';
+  const visBadge=userRole==='practitioner'?`<span class="vis-badge ${vis}">${vis}</span>`:'';
   return `<div class="card" onclick="openMapScreen('${p.id}','library')"><div class="cb">
-    ${cat?`<div class="cat-tag">${cat.name}</div><br>`:''}
-    <div class="card-title" style="margin-top:2px">${p.name}</div>
+    ${cat?`<div class="cat-tag">${cat.name}</div> `:''}${visBadge}
+    <div class="card-title" style="margin-top:4px">${p.name}</div>
     <div class="card-meta">${ap?`<span class="pill">${done}/${total} done</span>`:'<span class="pill sage">Not started</span>'}
       <span>${total} scripts · ${p.domains.length} domain${p.domains.length!==1?'s':''}</span>
     </div>
@@ -1003,52 +1060,126 @@ function toggleOptIn(pid){
 }
 
 // ─── PATTERN MODAL ────────────────────────────────────────────────────────────
-function buildCatPicker(selectedId){
-  const el=document.getElementById('pm-category-picker');if(!el)return;
-  el.innerHTML=WHEEL.map(w=>`<button type="button" class="cat-pill${selectedId===w.id?' selected':''}" onclick="selectCat(${w.id})">${w.name}</button>`).join('');
+// ─── VISIBILITY UI ────────────────────────────────────────────────────────────
+let selectedVis='draft';
+let selectedStudents=new Set();
+
+function selectVis(v){
+  selectedVis=v;
+  document.querySelectorAll('.vis-btn').forEach(b=>b.classList.toggle('selected',b.dataset.vis===v));
+  document.getElementById('pm-assign-section').style.display=v==='private'?'block':'none';
 }
-function selectCat(id){
-  document.querySelectorAll('.cat-pill').forEach(b=>b.classList.toggle('selected',parseInt(b.textContent===WHEEL.find(w=>w.id===id)?.name?'1':'0')>0||b.onclick?.toString().includes(`(${id})`)));
-  // simpler: re-render picker with new selection
-  buildCatPicker(id);
-  document.getElementById('pm-category-picker').dataset.selected=id;
+
+function renderStudentPicker(preSelected=[]){
+  selectedStudents=new Set(preSelected.map(String));
+  const el=document.getElementById('pm-student-list');
+  if(!el)return;
+  if(studentsList.length===0){el.innerHTML='<p style="font-size:13px;color:var(--muted)">No students signed up yet.</p>';return}
+  el.innerHTML=studentsList.map(s=>`
+    <div class="student-check" onclick="toggleStudent('${s.id}')">
+      <div class="toggle${selectedStudents.has(String(s.id))?' on':''}" id="sc-${s.id}"></div>
+      <div>
+        <div class="student-name">${s.name||'—'}</div>
+        <div class="student-email">${s.email}</div>
+      </div>
+    </div>`).join('');
 }
-function getSelectedCat(){return parseInt(document.getElementById('pm-category-picker')?.dataset.selected||'0')||null}
+
+function toggleStudent(id){
+  const sid=String(id);
+  if(selectedStudents.has(sid))selectedStudents.delete(sid);
+  else selectedStudents.add(sid);
+  const t=document.getElementById('sc-'+sid);
+  if(t)t.classList.toggle('on',selectedStudents.has(sid));
+}
 
 function openNewPatternModal(){
-  editPid=null;domN=0;
+  editPid=null;domN=0;selectedVis='draft';selectedStudents=new Set();
   document.getElementById('pm-title').textContent='New pattern map';
   document.getElementById('pm-name').value='';
   document.getElementById('pm-main').value='';
   document.getElementById('domain-inputs').innerHTML='';
   buildCatPicker(null);
   document.getElementById('pm-category-picker').dataset.selected='';
+  selectVis('draft');
+  renderStudentPicker([]);
   addDomainInput();
   document.getElementById('pattern-modal').classList.add('open');
 }
+
 function openEditModal(pid){
   const pat=patterns.find(p=>p.id===pid);if(!pat)return;
   editPid=pid;domN=0;
   document.getElementById('pm-title').textContent='Edit pattern map';
   document.getElementById('pm-name').value=pat.name;
-  document.getElementById('pm-main').value=pat.main.body;
+  document.getElementById('pm-main').value=pat.main?.body||'';
   document.getElementById('domain-inputs').innerHTML='';
   buildCatPicker(pat.category||null);
   document.getElementById('pm-category-picker').dataset.selected=pat.category||'';
-  pat.domains.forEach(d=>addDomainInput(d.title,d.body));
-  if(pat.domains.length===0)addDomainInput();
+  selectVis(pat.visibility||'draft');
+  renderStudentPicker(pat.assignedUsers||[]);
+  pat.domains?.forEach(d=>addDomainInput(d.title,d.body));
+  if(!pat.domains||pat.domains.length===0)addDomainInput();
   document.getElementById('pattern-modal').classList.add('open');
 }
-function addDomainInput(tv='',bv=''){domN++;const n=domN;const div=document.createElement('div');div.id='db-'+n;div.className='d-add-row';div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;document.getElementById('domain-inputs').appendChild(div)}
-function savePattern(){
-  const name=document.getElementById('pm-name').value.trim();const mainBody=document.getElementById('pm-main').value.trim();
-  if(!name||!mainBody){alert('Pattern name and main script are required.');return}
-  const doms=[];document.querySelectorAll('[id^="db-"]').forEach(b=>{const n=b.id.replace('db-','');const t=document.getElementById('dt-'+n)?.value.trim();const bv=document.getElementById('dbody-'+n)?.value.trim();if(t&&bv)doms.push({title:t,body:bv})});
-  const category=getSelectedCat();
-  if(editPid){const pat=patterns.find(p=>p.id===editPid);if(pat){pat.name=name;pat.main={title:name+' — Main',body:mainBody};pat.domains=doms;pat.category=category}}
-  else{patterns.push({id:'p'+Date.now(),name,main:{title:name+' — Main',body:mainBody},domains:doms,category,createdAt:Date.now()})}
-  persist();closePatternModal();renderLibrary();if(editPid)openMapScreen(editPid);
+function buildCatPicker(selectedId){
+  const el=document.getElementById('pm-category-picker');if(!el)return;
+  el.innerHTML=WHEEL.map(w=>`<button type="button" class="cat-pill${selectedId===w.id?' selected':''}" onclick="selectCat(${w.id})">${w.name}</button>`).join('');
 }
+function selectCat(id){
+  buildCatPicker(id);
+  document.getElementById('pm-category-picker').dataset.selected=id;
+}
+function getSelectedCat(){return parseInt(document.getElementById('pm-category-picker')?.dataset.selected||'0')||null}
+
+function addDomainInput(tv='',bv=''){
+  domN++;const n=domN;
+  const div=document.createElement('div');div.id='db-'+n;div.className='d-add-row';
+  div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;
+  document.getElementById('domain-inputs').appendChild(div);
+}
+
+async function savePattern(){
+  const name=document.getElementById('pm-name').value.trim();
+  const mainBody=document.getElementById('pm-main').value.trim();
+  if(!name||!mainBody){alert('Pattern name and main script are required.');return}
+  const doms=[];
+  document.querySelectorAll('[id^="db-"]').forEach(b=>{
+    const n=b.id.replace('db-','');
+    const t=document.getElementById('dt-'+n)?.value.trim();
+    const bv=document.getElementById('dbody-'+n)?.value.trim();
+    if(t&&bv)doms.push({title:t,body:bv});
+  });
+  const category=getSelectedCat();
+  const visibility=selectedVis||'draft';
+  const assignedUsers=[...selectedStudents].map(Number);
+  const pid=editPid||('p'+Date.now());
+  const pat={
+    id:pid, name,
+    category, visibility, assignedUsers,
+    main:{title:name+' — Main',body:mainBody},
+    domains:doms,
+    createdAt:editPid?(patterns.find(p=>p.id===editPid)?.createdAt||Date.now()):Date.now()
+  };
+  // Update local array
+  const idx=patterns.findIndex(p=>p.id===pid);
+  if(idx>=0)patterns[idx]=pat; else patterns.push(pat);
+  // Save to server immediately
+  await savePatternToServer(pat);
+  closePatternModal();
+  renderLibrary();
+  if(editPid)openMapScreen(pid,mapFromScreen);
+}
+
+async function delPattern(pid){
+  if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;
+  patterns=patterns.filter(p=>p.id!==pid);
+  active=active.filter(a=>a.pid!==pid);
+  persist();
+  await deletePatternFromServer(pid);
+  showScreen('library');
+}
+
 function closePatternModal(){document.getElementById('pattern-modal').classList.remove('open')}
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
