@@ -1326,6 +1326,7 @@ async function saveDisplayName(){
     }
   }catch(e){alert('Could not save name. Check your connection.')}
 }
+function updatePitch(v){cfg.pitch=parseFloat(v);document.getElementById('pitch-val').textContent=parseFloat(v).toFixed(2);persist()}
 function updateDefaultSpeed(v){cfg.speed=parseFloat(v);playRate=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(v).toFixed(1)+'×';persist()}
 function toggleKeepScreen(btn){cfg.keepScreen=!cfg.keepScreen;btn.classList.toggle('on',cfg.keepScreen);persist()}
 function updateVoiceDisplay(){const el=document.getElementById('voice-name');if(!el)return;if(voices.length===0){el.textContent='Default device voice';return}const v=voices[cfg.voiceIdx%voices.length];el.textContent=v?`${v.name} (${v.lang})`:'Default'}
