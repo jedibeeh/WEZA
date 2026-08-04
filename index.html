@@ -348,6 +348,13 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
             <span class="srow-label">Keep screen on while playing</span>
             <button class="toggle" id="toggle-screen" onclick="toggleKeepScreen(this)"></button>
           </div>
+          <div class="srow">
+            <div style="flex:1">
+              <div class="srow-label">Play intro guide</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">Breath, tapping instruction &amp; entry line before each session</div>
+            </div>
+            <button class="toggle on" id="toggle-guide" onclick="toggleIntroGuide(this)"></button>
+          </div>
         </div>
         <div class="section-label">Account</div>
         <div class="sgroup">
@@ -488,7 +495,26 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 </div>
 
 <script>
-// ─── WHEEL OF LIFE CATEGORIES ─────────────────────────────────────────────────
+// ─── MINI GUIDE ───────────────────────────────────────────────────────────────
+// Injected at [GUIDE] marker in script text when "Play intro guide" is on.
+// Never stored in script — TTS-only, dynamic.
+const MINI_GUIDE_PARA1 =
+  `Take a slow breath and arrive here.\nYou do not need to analyze anything.\nLet the words land where they land.\nYour body will take what it needs.`;
+
+const MINI_GUIDE_PARA2 =
+  `This material is emotionally activating by design.\nIt works by meeting what you are carrying directly.\nTo get the full benefit and stay present rather than overwhelmed, tap gently on a single point on your body as you listen.\nIf you know EFT, you can use all nine points.\nBut using only a single point, such as karate chop or collarbone, keeps your attention inside the feeling rather than tracking where to tap next, and is just as effective.`;
+
+const ENTRY_LINES = ['And begin.', 'We begin now.', "Let's begin."];
+let entryLineIndex = 0;
+function nextEntryLine(){
+  const line = ENTRY_LINES[entryLineIndex % ENTRY_LINES.length];
+  entryLineIndex++;
+  return line;
+}
+
+function getMiniGuideChunks(){
+  return [MINI_GUIDE_PARA1, MINI_GUIDE_PARA2, nextEntryLine()];
+}
 const WHEEL=[
   {id:1,name:'Self & Identity',covers:'Self-worth, self-concept, shame, confidence, authenticity, inner child'},
   {id:2,name:'Emotional Wellbeing',covers:'Emotional regulation, grief, anxiety, depression, anger, resilience'},
@@ -623,7 +649,7 @@ function signOut(){
 }
 
 // ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
-let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true};
+let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true,playGuide:true};
 let saveTimer=null, syncing=false, localUpdatedAt=0;
 
 async function loadFromServer(){
@@ -639,7 +665,7 @@ async function loadFromServer(){
     // For cfg: only overwrite if server is newer than local unsaved changes
     const serverTs=data.updatedAt||0;
     if(serverTs>=localUpdatedAt){
-      cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:true},data.cfg||{});
+      cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:true,playGuide:true},data.cfg||{});
       localUpdatedAt=serverTs;
     }
     setSyncState('ok');
@@ -979,12 +1005,40 @@ function toggleScript(){const b=document.getElementById('script-body'),t=documen
 
 // ─── CHUNKED TTS ──────────────────────────────────────────────────────────────
 function splitChunks(text){
-  let raw=text.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+  // Split on [GUIDE] marker first
+  const MARKER='[GUIDE]';
+  const hasMarker=text.includes(MARKER);
+  let parts=hasMarker?text.split(MARKER):[null,text];
+  // parts[0] = before guide (heading + recognition line), parts[1] = session body
+  // If no marker, parts[0]=null, parts[1]=full text
+
   const out=[];
-  raw.forEach(para=>{
-    if(para.length<600){out.push(para)}
-    else{const sents=para.match(/[^.!?]+[.!?]+[\s]*/g)||[para];let buf='';sents.forEach(s=>{if((buf+s).length>500&&buf){out.push(buf.trim());buf=s}else buf+=s});if(buf.trim())out.push(buf.trim())}
-  });
+
+  function addParagraphs(str){
+    if(!str)return;
+    let raw=str.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+    raw.forEach(para=>{
+      if(para.length<600){out.push(para)}
+      else{
+        const sents=para.match(/[^.!?]+[.!?]+[\s]*/g)||[para];
+        let buf='';
+        sents.forEach(s=>{if((buf+s).length>500&&buf){out.push(buf.trim());buf=s}else buf+=s});
+        if(buf.trim())out.push(buf.trim());
+      }
+    });
+  }
+
+  // Add pre-guide content (heading + recognition line)
+  if(hasMarker) addParagraphs(parts[0]);
+
+  // Inject mini guide if toggled on
+  if(cfg.playGuide!==false){
+    getMiniGuideChunks().forEach(c=>out.push(c));
+  }
+
+  // Add session body
+  addParagraphs(parts[hasMarker?1:0]||parts[1]);
+
   return out;
 }
 
@@ -1348,6 +1402,8 @@ function renderSettings(){
   document.getElementById('pitch-slider').value=cfg.pitch;document.getElementById('pitch-val').textContent=parseFloat(cfg.pitch).toFixed(2);
   document.getElementById('speed-slider').value=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(cfg.speed).toFixed(1)+'×';
   document.getElementById('toggle-screen').classList.toggle('on',cfg.keepScreen);
+  const tg=document.getElementById('toggle-guide');
+  if(tg)tg.classList.toggle('on',cfg.playGuide!==false);
   document.getElementById('account-email').textContent=userEmail||'';
   const nameInput=document.getElementById('account-name-input');
   if(nameInput){nameInput.value=userName||'';nameInput.style.borderColor='rgba(255,255,255,.1)'}
@@ -1372,6 +1428,7 @@ async function saveDisplayName(){
 function updatePitch(v){cfg.pitch=parseFloat(v);document.getElementById('pitch-val').textContent=parseFloat(v).toFixed(2);persist()}
 function updateDefaultSpeed(v){cfg.speed=parseFloat(v);playRate=cfg.speed;document.getElementById('speed-val').textContent=parseFloat(v).toFixed(1)+'×';persist()}
 function toggleKeepScreen(btn){cfg.keepScreen=!cfg.keepScreen;btn.classList.toggle('on',cfg.keepScreen);persist()}
+function toggleIntroGuide(btn){cfg.playGuide=!cfg.playGuide;btn.classList.toggle('on',cfg.playGuide);persist()}
 function updateVoiceDisplay(){const el=document.getElementById('voice-name');if(!el)return;if(voices.length===0){el.textContent='Default device voice';return}const v=voices[cfg.voiceIdx%voices.length];el.textContent=v?`${v.name} (${v.lang})`:'Default'}
 function cycleVoice(){if(voices.length===0)return;cfg.voiceIdx=(cfg.voiceIdx+1)%voices.length;persist();updateVoiceDisplay();if(previewPlaying)stopPreview();startPreview()}
 
