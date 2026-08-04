@@ -223,9 +223,17 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
       <div class="inner">
         <div class="page-title">Library</div>
         <div class="page-sub">All pattern maps</div>
-        <div class="search-bar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" placeholder="Search patterns…" id="lib-search" oninput="renderLibrary()">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:18px">
+          <div class="search-bar" style="margin-bottom:0;flex:1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" placeholder="Search patterns…" id="lib-search" oninput="renderLibrary()">
+          </div>
+          <button id="lib-sort-btn" onclick="toggleLibSort()"
+            style="background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:12px;
+              color:var(--muted);font-size:11px;padding:0 12px;height:42px;cursor:pointer;
+              font-family:var(--sans);white-space:nowrap;flex-shrink:0;transition:all .15s">
+            Recent ↓
+          </button>
         </div>
         <div class="lib-filter" id="lib-filter"></div>
         <div id="library-list"></div>
@@ -625,10 +633,12 @@ async function loadFromServer(){
     const res=await fetch('/api/data',{headers:{Authorization:'Bearer '+token}});
     if(res.status===401){signOut();return}
     const data=await res.json();
+    // Always apply patterns and active from server — these are the source of truth
+    patterns=data.patterns||[];
+    active=data.active||[];
+    // For cfg: only overwrite if server is newer than local unsaved changes
     const serverTs=data.updatedAt||0;
     if(serverTs>=localUpdatedAt){
-      patterns=data.patterns||[];
-      active=data.active||[];
       cfg=Object.assign({voiceIdx:0,pitch:0.95,speed:1,keepScreen:true},data.cfg||{});
       localUpdatedAt=serverTs;
     }
@@ -709,12 +719,19 @@ function setSyncState(state){
 async function initApp(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').style.display='flex';
-  await loadFromServer();
-  document.getElementById('account-email').textContent=userEmail||'';
   const isPractitioner=userRole==='practitioner';
-  if(isPractitioner) await loadStudents();
+  if(isPractitioner) loadStudents(); // non-blocking, loads in background
   loadVoices();
+  // Show skeleton immediately, then load data and re-render
   renderHome();
+  await loadFromServer();
+  // Re-render whichever screen is active after data arrives
+  const s=document.querySelector('.screen.active')?.id;
+  if(s==='home-screen') renderHome();
+  if(s==='library-screen') renderLibrary();
+  document.getElementById('account-email').textContent=userEmail||'';
+  const nameInput=document.getElementById('account-name-input');
+  if(nameInput) nameInput.value=userName||'';
 }
 
 // On load — if token exists, go straight to app
@@ -779,9 +796,17 @@ function renderHome(){
 }
 
 // ─── LIBRARY ──────────────────────────────────────────────────────────────────
-let libVisTab='all'; // 'all' | 'draft' | 'global' | 'private'
-let libClientFilter=null; // student/client user id for filtering private tab
+let libVisTab='all';
+let libClientFilter=null;
 let libCatFilter=null;
+let libSort='recent'; // 'recent' | 'alpha'
+
+function toggleLibSort(){
+  libSort=libSort==='recent'?'alpha':'recent';
+  const btn=document.getElementById('lib-sort-btn');
+  if(btn)btn.textContent=libSort==='recent'?'Recent ↓':'A–Z ↓';
+  renderLibrary();
+}
 
 function renderLibraryTabs(){
   const el=document.getElementById('lib-filter');if(!el)return;
@@ -832,20 +857,31 @@ function renderLibrary(){
   }
 
   if(filt.length===0){
-    list.innerHTML=clientFilterHtml+`<div class="empty"><p>${libVisTab==='draft'?'No drafts yet.':libVisTab==='global'?'No global patterns yet.':libVisTab==='private'?'No private patterns yet.':'No patterns yet.'}<br>${userRole==='practitioner'?'Add your first one below.':''}</p></div>`;
+    list.innerHTML=clientFilterHtml+`<div class="empty"><p>${libVisTab==='draft'?'No drafts yet.':libVisTab==='global'?'No global patterns yet.':libVisTab==='private'?'No private patterns yet.':'No patterns yet.'}<br>${userRole==='practitioner'?'Tap + to add your first one.':''}</p></div>`;
     return;
   }
 
-  // Group by category
-  const grouped={};
-  filt.forEach(p=>{const k=p.category||0;if(!grouped[k])grouped[k]=[];grouped[k].push(p)});
-  let html=clientFilterHtml;
-  if(grouped[0])grouped[0].forEach(p=>{html+=patCard(p)});
-  WHEEL.forEach(w=>{
-    if(!grouped[w.id])return;
-    html+=`<div class="section-label">${w.name}</div>`;
-    grouped[w.id].forEach(p=>{html+=patCard(p)});
+  // Sort
+  filt.sort((a,b)=>{
+    if(libSort==='alpha') return a.name.localeCompare(b.name);
+    return (b.createdAt||0)-(a.createdAt||0); // most recent first
   });
+
+  // For 'recent' sort, show flat list (no category grouping) so newest is always at top
+  let html=clientFilterHtml;
+  if(libSort==='recent'){
+    filt.forEach(p=>{html+=patCard(p)});
+  } else {
+    // Alpha sort: group by category
+    const grouped={};
+    filt.forEach(p=>{const k=p.category||0;if(!grouped[k])grouped[k]=[];grouped[k].push(p)});
+    if(grouped[0])grouped[0].forEach(p=>{html+=patCard(p)});
+    WHEEL.forEach(w=>{
+      if(!grouped[w.id])return;
+      html+=`<div class="section-label">${w.name}</div>`;
+      grouped[w.id].forEach(p=>{html+=patCard(p)});
+    });
+  }
   list.innerHTML=html;
 }
 
@@ -1285,8 +1321,15 @@ async function savePattern(){
   const idx=patterns.findIndex(p=>p.id===pid);
   if(idx>=0)patterns[idx]=pat; else patterns.push(pat);
   closePatternModal();
-  renderLibrary();
-  if(editPid)openMapScreen(pid,mapFromScreen);
+  if(editPid){
+    // Editing: go back to the map screen
+    renderLibrary();
+    openMapScreen(pid,mapFromScreen);
+  } else {
+    // New pattern: open it immediately so you can see/edit/assign without hunting for it
+    renderLibrary();
+    openMapScreen(pid,'library');
+  }
 }
 
 async function delPattern(pid){
