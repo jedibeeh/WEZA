@@ -656,6 +656,7 @@ function signOut(){
 // ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
 let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true,playGuide:true};
 let saveTimer=null, syncing=false, localUpdatedAt=0;
+let activeDirty=false; // true only when active was changed locally, not just loaded from server
 
 async function loadFromServer(){
   lastFetchAt=Date.now();
@@ -664,9 +665,12 @@ async function loadFromServer(){
     const res=await fetch('/api/data',{headers:{Authorization:'Bearer '+token}});
     if(res.status===401){signOut();return}
     const data=await res.json();
-    // Always apply patterns and active from server — these are the source of truth
+    // Always apply patterns from server
     patterns=data.patterns||[];
-    active=data.active||[];
+    // Only apply active if not dirty locally — prevents overwriting practitioner's opt-in
+    if(!activeDirty){
+      active=data.active||[];
+    }
     // For cfg: only overwrite if server is newer than local unsaved changes
     const serverTs=data.updatedAt||0;
     if(serverTs>=localUpdatedAt){
@@ -683,9 +687,9 @@ async function saveToServer(){
   syncing=true; setSyncState('syncing');
   const ts=Date.now(); localUpdatedAt=ts;
   try{
-    // Active state + cfg only — patterns live in their own table now
     await fetch('/api/data',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
       body:JSON.stringify({active,cfg,updatedAt:ts})});
+    activeDirty=false; // reset after successful save
     setSyncState('ok');
   }catch(e){setSyncState('error')}
   syncing=false;
@@ -730,8 +734,9 @@ async function loadStudents(){
   }catch(e){}
 }
 
-function persist(){
-  localUpdatedAt=Date.now(); // mark edit time immediately
+function persist(dirtyActive=false){
+  if(dirtyActive) activeDirty=true;
+  localUpdatedAt=Date.now();
   clearTimeout(saveTimer);
   saveTimer=setTimeout(saveToServer,2000);
 }
@@ -983,9 +988,9 @@ function openMapScreen(pid, from){
 function drow(lbl,title,pid,idx,isDone,isNext){
   return `<div class="drow${isNext?' is-next':''}${isDone?' is-done':''}" onclick="openPlayer('${pid}',${idx})"><div class="drow-idx">${lbl}</div><div class="drow-name">${title}</div><div class="dcheck${isDone?' done':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
 }
-function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,lastAt:Date.now()});persist();openMapScreen(pid)}
-function optOutMap(pid){if(!confirm('Drop this pattern from your active work? Your progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);persist();showScreen(prevScreen==='home'?'home':'library')}
-function delPattern(pid){if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist();showScreen('library')}
+function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,lastAt:Date.now()});persist(true);openMapScreen(pid,'map')}
+function optOutMap(pid){if(!confirm('Drop this pattern from your active work? Your progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);persist(true);showScreen(prevScreen==='home'?'home':'library')}
+function delPattern(pid){if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist(true);showScreen('library')}
 
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
 function openPlayer(pid,idx){
@@ -1219,12 +1224,12 @@ function toggleComplete(){
   if(isComplete){
     // Undo: step progress back to this script
     if(!confirm('Mark this session as not complete?'))return;
-    ap.progress=curIdx;ap.lastAt=Date.now();persist();
+    ap.progress=curIdx;ap.lastAt=Date.now();persist(true);
     document.getElementById('tts-status').textContent='Marked incomplete';
   } else {
     // Mark complete: advance progress past this script
     if(curIdx===ap.progress&&ap.progress<total){
-      ap.progress++;ap.lastAt=Date.now();persist();
+      ap.progress++;ap.lastAt=Date.now();persist(true);
       document.getElementById('tts-status').textContent='✓ Marked complete';
     }
   }
@@ -1236,7 +1241,7 @@ function autoComplete(){
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const total=1+pat.domains.length;
   if(curIdx===ap.progress&&ap.progress<total){
-    ap.progress++;ap.lastAt=Date.now();persist();
+    ap.progress++;ap.lastAt=Date.now();persist(true);
     document.getElementById('tts-status').textContent='✓ Marked complete';
     updateCompleteBtn();
   }
@@ -1253,7 +1258,7 @@ function toggleOptIn(pid){
   const ap=active.find(a=>a.pid===pid);
   if(ap){if(!confirm('Remove from active work? Progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);document.getElementById('ot-'+pid)?.classList.remove('on')}
   else{active.push({pid,progress:0,lastAt:Date.now()});document.getElementById('ot-'+pid)?.classList.add('on')}
-  persist();renderHome();
+  persist(true);renderHome();
 }
 
 // ─── PATTERN MODAL ────────────────────────────────────────────────────────────
@@ -1411,7 +1416,7 @@ async function delPattern(pid){
   if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;
   patterns=patterns.filter(p=>p.id!==pid);
   active=active.filter(a=>a.pid!==pid);
-  persist();
+  persist(true);
   await deletePatternFromServer(pid);
   showScreen('library');
 }
