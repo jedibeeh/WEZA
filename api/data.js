@@ -88,11 +88,11 @@ export default async function handler(req, res) {
     // ── POST /api/data?action=save_pattern ────────────────────────────────────
     if (req.method === 'POST' && req.query.action === 'save_pattern') {
       if (role !== 'practitioner') return res.status(403).json({ error: 'Forbidden' });
-      const { id, name, category, visibility, assignedUsers, main, domains, createdAt } = req.body || {};
+      const { id, name, category, visibility, assignedUsers, main, domains, createdAt, description } = req.body || {};
       if (!id || !name) return res.status(400).json({ error: 'id and name required' });
 
       const assignedInts = (assignedUsers || []).map(Number).filter(n => !isNaN(n) && n > 0);
-      const dataJson = JSON.stringify({ main, domains, createdAt });
+      const dataJson = JSON.stringify({ main, domains, createdAt, description: description || '' });
 
       // assigned_users column is JSONB — pass as jsonb literal
       await sql`
