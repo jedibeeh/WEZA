@@ -1,7 +1,7 @@
 // api/public.js
-// GET /api/public?id=[pattern-id]
-// No auth required — returns outreach patterns only.
-// Never returns draft, global, or private patterns.
+// GET /api/public          → all outreach patterns (landing page)
+// GET /api/public?id=[id]  → single outreach pattern
+// No auth required. Only serves visibility='outreach' patterns.
 
 import { sql } from '@vercel/postgres';
 
@@ -12,39 +12,49 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { id } = req.query;
-  if (!id) return res.status(400).json({ error: 'id is required' });
-
   try {
-    const result = await sql`
-      SELECT id, name, category, visibility, data
-      FROM patterns
-      WHERE id = ${id}
-        AND visibility = 'outreach'
-    `;
+    const { id } = req.query;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Pattern not found or not publicly available' });
+    if (id) {
+      // Single pattern by ID
+      const result = await sql`
+        SELECT id, name, category, visibility, data
+        FROM patterns
+        WHERE id = ${id} AND visibility = 'outreach'
+      `;
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Pattern not found or not publicly available' });
+      }
+      const r = result.rows[0];
+      // Increment play count non-blocking
+      sql`UPDATE patterns SET data = jsonb_set(
+        COALESCE(data,'{}'), '{playCount}',
+        to_jsonb(COALESCE((data->>'playCount')::int,0)+1)
+      ) WHERE id = ${id}`.catch(()=>{});
+      return res.status(200).json({
+        id: r.id, name: r.name, category: r.category,
+        ...(r.data || {})
+      });
     }
 
-    const r = result.rows[0];
-    const pat = {
+    // All outreach patterns for landing page
+    const result = await sql`
+      SELECT id, name, category, data
+      FROM patterns
+      WHERE visibility = 'outreach'
+      ORDER BY created_at ASC
+    `;
+    const patterns = result.rows.map(r => ({
       id: r.id,
       name: r.name,
       category: r.category,
-      ...(r.data || {})
-    };
+      description: r.data?.description || '',
+      // Don't send full script bodies in listing — only on individual fetch
+    }));
+    return res.status(200).json({ patterns });
 
-    // Increment play count (non-blocking — ignore failure)
-    sql`UPDATE patterns SET data = jsonb_set(
-      COALESCE(data, '{}'),
-      '{playCount}',
-      to_jsonb(COALESCE((data->>'playCount')::int, 0) + 1)
-    ) WHERE id = ${id}`.catch(() => {});
-
-    return res.status(200).json(pat);
   } catch (err) {
-    console.error('Public pattern error:', err);
+    console.error('Public error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 }
