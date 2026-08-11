@@ -54,6 +54,8 @@ export default async function handler(req, res) {
           ORDER BY created_at ASC
         `;
       } else {
+        const userIdInt = Number(userId);
+        const userIdStr = String(userId);
         patRows = await sql`
           SELECT id, name, category, visibility, assigned_users, data
           FROM patterns
@@ -61,7 +63,10 @@ export default async function handler(req, res) {
              OR visibility = 'global+private'
              OR (
                visibility IN ('private', 'global+private')
-               AND assigned_users @> ${JSON.stringify([Number(userId)])}::jsonb
+               AND (
+                 assigned_users @> ${JSON.stringify([userIdInt])}::jsonb
+                 OR assigned_users @> ${JSON.stringify([userIdStr])}::jsonb
+               )
              )
           ORDER BY created_at ASC
         `;
