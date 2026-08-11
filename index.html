@@ -791,11 +791,14 @@ function trackingStop(){
   const today=new Date().toISOString().slice(0,10);
   if(!cfg.stats)cfg.stats={};
   cfg.stats[today]=(cfg.stats[today]||0)+secs;
-  // Recompute _total from all date keys every time (never stale)
   cfg.stats._total=Object.entries(cfg.stats)
     .filter(([k])=>k!=='_total')
     .reduce((sum,[,v])=>sum+v,0);
-  persist();
+  // Force immediate save — don't debounce stats
+  // Also update localUpdatedAt so polls don't overwrite with stale server cfg
+  localUpdatedAt=Date.now();
+  clearTimeout(saveTimer);
+  saveToServer();
 }
 function getListenStats(){
   const stats=cfg.stats||{};
@@ -1336,16 +1339,21 @@ function pausePlayback(){
   document.getElementById('tts-status').textContent='Paused — tap to resume';
 }
 
+let speakGen=0;
 function speakChunk(){
   if(!playing||chunkIdx>=chunks.length){onPlaybackEnd();return}
   synth.cancel();
-  const utt=new SpeechSynthesisUtterance(chunks[chunkIdx]);
-  utt.rate=playRate;utt.pitch=cfg.pitch||0.95;utt.volume=1;
-  if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
-  updateScrubber();
-  utt.onend=()=>{if(!playing)return;chunkIdx++;speakChunk()};
-  utt.onerror=(e)=>{if(e.error==='interrupted')return;playing=false;setPlayIcon(false);releaseWake();trackingStop();document.getElementById('tts-status').textContent='Stopped'};
-  synth.speak(utt);
+  const gen=++speakGen;
+  setTimeout(()=>{
+    if(!playing||gen!==speakGen)return;
+    const utt=new SpeechSynthesisUtterance(chunks[chunkIdx]);
+    utt.rate=playRate;utt.pitch=cfg.pitch||0.95;utt.volume=1;
+    if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
+    updateScrubber();
+    utt.onend=()=>{if(!playing||gen!==speakGen)return;chunkIdx++;speakChunk()};
+    utt.onerror=(e)=>{if(e.error==='interrupted'||gen!==speakGen)return;playing=false;setPlayIcon(false);releaseWake();trackingStop();document.getElementById('tts-status').textContent='Stopped'};
+    synth.speak(utt);
+  },50);
 }
 
 function onPlaybackEnd(){
@@ -1365,16 +1373,11 @@ function stopAll(){
   document.getElementById('chunk-info').textContent='';
 }
 
-// Skip forward or back by N paragraphs
 function skipChunk(dir){
   if(chunks.length===0)return;
   const wasPlaying=playing;
-  synth.cancel();
   playing=false;
-  // When going back while a chunk is mid-play, chunkIdx points to current chunk.
-  // Going back -1 from current means chunkIdx-1, but if we're mid-play we
-  // want to go to chunkIdx-1 (previous), not re-play current.
-  // Going forward +1 is straightforward.
+  synth.cancel();
   const next=Math.max(0,Math.min(chunks.length-1,chunkIdx+dir));
   chunkIdx=next;
   updateScrubber();
