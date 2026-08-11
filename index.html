@@ -258,7 +258,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 </div>
 
 <!-- AUTH SCREEN -->
-<div id="auth-screen" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:24px">
+<div id="auth-screen" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:none;align-items:center;justify-content:center;padding:24px">
   <div class="auth-box">
     <h1>WEZA</h1>
     <div class="auth-sub" id="auth-sub">Sign in to your account</div>
@@ -738,7 +738,8 @@ function setPubSpeed(r,btn){
 function showAuthFromPublic(mode='register'){
   stopPublicPlay();
   document.getElementById('public-screen').style.display='none';
-  document.getElementById('auth-screen').style.display='flex';
+  const authEl=document.getElementById('auth-screen');
+  authEl.style.display='flex';
   if(mode==='login'&&authMode!=='login')toggleAuthMode();
   else if(mode==='register'&&authMode==='login')toggleAuthMode();
 }
@@ -865,6 +866,8 @@ async function submitAuth(){
     localStorage.setItem('weza_email',userEmail);
     localStorage.setItem('weza_role',userRole);
     localStorage.setItem('weza_name',userName);
+    document.getElementById('public-screen').style.display='none';
+    document.getElementById('auth-screen').style.display='none';
     await initApp();
   }catch(e){document.getElementById('auth-error').textContent='Network error. Check your connection.';btn.disabled=false;btn.textContent=authMode==='login'?'Sign in':'Create account'}
 }
@@ -873,7 +876,10 @@ function signOut(){
   if(!confirm('Sign out?'))return;
   token=null;userEmail=null;userRole='student';userName='';
   ['weza_token','weza_email','weza_role','weza_name'].forEach(k=>localStorage.removeItem(k));
-  location.reload();
+  // Go to public landing rather than showing auth screen
+  document.getElementById('app').style.display='none';
+  document.getElementById('auth-screen').style.display='none';
+  checkPublicPattern();
 }
 
 // ─── STORAGE — fetches to /api/data scoped to authenticated user ──────────────
