@@ -189,6 +189,8 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .vis-badge.global{background:rgba(122,158,138,.15);color:var(--sage)}
 .vis-badge.private{background:var(--a-soft);color:var(--amber)}
 .vis-badge.outreach{background:rgba(100,160,220,.15);color:#6aa0dc}
+.pub-tab{background:var(--surface);border:1px solid rgba(255,255,255,.07);color:var(--muted);font-size:12px;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:var(--sans);white-space:nowrap;transition:all .15s;flex-shrink:0}
+.pub-tab.active{background:var(--a-soft);color:var(--amber);border-color:var(--a-border)}
 </style>
 </head>
 <body>
@@ -204,15 +206,25 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 
   <!-- LANDING MODE (shown when no ?pattern param) -->
   <div id="pub-landing" style="display:none">
-    <div style="max-width:480px;margin:0 auto;padding:36px 20px 80px">
-      <div style="margin-bottom:32px">
-        <div style="font-family:var(--serif);font-size:28px;font-weight:normal;line-height:1.3;color:var(--text);margin-bottom:10px">Somatic healing,<br>pattern by pattern.</div>
-        <div style="font-size:15px;color:var(--muted);line-height:1.65;margin-bottom:20px">WEZA maps emotional patterns and delivers guided somatic sessions that help you work through them. Try a session below — no account needed.</div>
-        <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="width:100%;margin-bottom:8px">Create a free account</button>
-        <button onclick="showAuthFromPublic('login')" class="btn btn-ghost" style="width:100%">Sign in</button>
+    <div style="max-width:860px;margin:0 auto;padding:28px 20px 80px">
+      <!-- Compact hero -->
+      <div style="margin-bottom:24px">
+        <div style="font-family:var(--serif);font-size:24px;font-weight:normal;line-height:1.3;color:var(--text);margin-bottom:8px">Somatic healing,<br>pattern by pattern.</div>
+        <div style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px;max-width:540px">Guided audio sessions that meet you inside emotional patterns. Try any session below — no account needed.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="padding:9px 20px;font-size:14px">Create free account</button>
+          <button onclick="showAuthFromPublic('login')" class="btn btn-ghost" style="padding:9px 20px;font-size:14px">Sign in</button>
+        </div>
       </div>
-
-      <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:14px">Try a free session</div>
+      <!-- Search -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div class="search-bar" style="margin-bottom:0;flex:1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search sessions…" id="pub-search" oninput="filterPubSearch(this.value)">
+        </div>
+        <div id="pub-count" style="font-size:12px;color:var(--muted);white-space:nowrap"></div>
+      </div>
+      <!-- Pattern list (category-grouped) -->
       <div id="pub-landing-list"></div>
     </div>
   </div>
@@ -536,6 +548,13 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         </div>
         <button type="button" class="toggle" id="pm-outreach-toggle" onclick="toggleOutreach()"></button>
       </div>
+      <div style="display:flex;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06)">
+        <div style="flex:1">
+          <div style="font-size:14px;color:var(--text)">Show on public landing</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Appears on weza-sigma.vercel.app without login — regardless of outreach/global setting</div>
+        </div>
+        <button type="button" class="toggle" id="pm-landing-toggle" onclick="toggleShowOnLanding()"></button>
+      </div>
       <div style="display:flex;align-items:center;padding:12px 14px">
         <div style="flex:1">
           <div style="font-size:14px;color:var(--text)">Assign to clients</div>
@@ -628,31 +647,123 @@ async function checkPublicPattern(){
   return true;
 }
 
+function filterPubSearch(q){
+  q=q.toLowerCase().trim();
+  document.querySelectorAll('.pub-section').forEach(s=>{
+    const cards=s.querySelectorAll('[onclick^="openPublicPattern"]');
+    let visible=0;
+    cards.forEach(c=>{
+      const matches=!q||c.textContent.toLowerCase().includes(q);
+      c.style.display=matches?'':'none';
+      if(matches)visible++;
+    });
+    s.style.display=visible>0?'block':'none';
+  });
+  const countEl=document.getElementById('pub-count');
+  if(countEl){
+    const shown=document.querySelectorAll('.pub-section [onclick^="openPublicPattern"]:not([style*="display: none"])').length;
+    countEl.textContent=`${shown} session${shown!==1?'s':''}`;
+  }
+}
+
 async function loadLandingPatterns(){
+  const countEl=document.getElementById('pub-count');
   try{
     const res=await fetch('/api/public');
     if(res.ok){
       const data=await res.json();
       publicPatterns=data.patterns||[];
+      if(countEl)countEl.textContent=`${publicPatterns.length} session${publicPatterns.length!==1?'s':''}`;
       renderLandingList();
     }
-  }catch(e){}
+  }catch(e){if(countEl)countEl.textContent=''}
 }
 
 function renderLandingList(){
   const el=document.getElementById('pub-landing-list');if(!el)return;
   if(publicPatterns.length===0){
-    el.innerHTML='<div style="color:var(--muted);font-size:14px;text-align:center;padding:20px 0">No public sessions available yet.</div>';
+    el.innerHTML='<div style="color:var(--muted);font-size:14px;text-align:center;padding:30px 0">No public sessions available yet.</div>';
     return;
   }
-  el.innerHTML=publicPatterns.map(p=>`
-    <div onclick="openPublicPattern('${p.id}')"
-      style="background:var(--surface);border-radius:14px;padding:16px 18px;margin-bottom:10px;cursor:pointer;border:1px solid rgba(255,255,255,.05);transition:background .15s"
-      onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
-      <div style="font-family:var(--serif);font-size:17px;font-weight:normal;margin-bottom:6px;color:var(--text)">${p.name}</div>
-      ${p.description?`<div style="font-size:12px;color:var(--muted);line-height:1.5">${p.description.length>140?p.description.slice(0,140)+'…':p.description}</div>`:''}
-      <div style="font-size:11px;color:var(--amber);margin-top:8px">▶ Play session</div>
-    </div>`).join('');
+
+  // Build category filter tabs
+  const catIds=[...new Set(publicPatterns.map(p=>p.category).filter(Boolean))].sort((a,b)=>a-b);
+  const tabsHtml=`<div id="pub-cat-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:12px 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+    <button class="pub-tab active" onclick="filterPubCat(null,this)">All (${publicPatterns.length})</button>
+    ${catIds.map(cid=>{
+      const cat=WHEEL.find(w=>w.id===cid);
+      const count=publicPatterns.filter(p=>p.category===cid).length;
+      return cat?`<button class="pub-tab" onclick="filterPubCat(${cid},this)">${cat.name} (${count})</button>`:'';
+    }).join('')}
+  </div>`;
+
+  // Group by category
+  const grouped={};
+  publicPatterns.forEach(p=>{
+    const k=p.category||0;
+    if(!grouped[k])grouped[k]=[];
+    grouped[k].push(p);
+  });
+
+  let html=tabsHtml+'<div id="pub-pattern-grid">';
+  let ctaShown=false;
+  let sectionCount=0;
+
+  // Uncategorised first
+  if(grouped[0]){
+    html+=renderPubSection(null,grouped[0]);
+    sectionCount++;
+  }
+  WHEEL.forEach(w=>{
+    if(!grouped[w.id])return;
+    // Insert CTA after 2nd category section
+    if(sectionCount===2&&!ctaShown){
+      html+=`<div style="margin:16px 0;background:var(--a-soft);border:1px solid var(--a-border);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-family:var(--serif);font-size:16px;color:var(--text);margin-bottom:4px">Track your healing journey</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.5">Create a free account to save your progress across sessions and access the full library.</div>
+        </div>
+        <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="flex-shrink:0;white-space:nowrap">Create free account</button>
+      </div>`;
+      ctaShown=true;
+    }
+    html+=renderPubSection(w,grouped[w.id]);
+    sectionCount++;
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function renderPubSection(cat,patterns){
+  const label=cat?cat.name:'General';
+  return `<div class="pub-section" data-cat="${cat?cat.id:0}">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:18px 0 10px">${label}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+      ${patterns.map(p=>`
+        <div onclick="openPublicPattern('${p.id}')"
+          style="background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px 18px;cursor:pointer;transition:background .15s"
+          onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
+          <div style="font-family:var(--serif);font-size:16px;font-weight:normal;line-height:1.35;margin-bottom:6px;color:var(--text)">${p.name}</div>
+          ${p.description?`<div style="font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:10px">${p.description.length>130?p.description.slice(0,130)+'…':p.description}</div>`:''}
+          <div style="font-size:12px;color:var(--amber);display:flex;align-items:center;gap:5px">
+            <span style="width:18px;height:18px;border-radius:50%;background:var(--a-soft);display:inline-flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 10 10" width="8" height="8" fill="var(--amber)"><polygon points="3,2 8,5 3,8"/></svg>
+            </span>Play session
+          </div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function filterPubCat(catId,btn){
+  document.querySelectorAll('.pub-tab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.querySelectorAll('.pub-section').forEach(s=>{
+    s.style.display=(catId===null||String(s.dataset.cat)===String(catId))?'block':'none';
+  });
+  // Hide/show CTA (keep visible when showing all)
+  const cta=document.querySelector('#pub-pattern-grid>div[style*="a-soft"]');
+  if(cta)cta.style.display=catId===null?'flex':'none';
 }
 
 function openPublicPattern(pid){
@@ -1512,22 +1623,14 @@ function toggleOptIn(pid){
 // ─── VISIBILITY UI ────────────────────────────────────────────────────────────
 let isGlobal=false;
 let isOutreach=false;
+let isShowOnLanding=false;
 let hasAssignments=false;
 let selectedStudents=new Set();
 
-function toggleGlobal(){
-  isGlobal=!isGlobal;
-  document.getElementById('pm-global-toggle').classList.toggle('on',isGlobal);
-}
-function toggleOutreach(){
-  isOutreach=!isOutreach;
-  document.getElementById('pm-outreach-toggle').classList.toggle('on',isOutreach);
-}
-function toggleAssign(){
-  hasAssignments=!hasAssignments;
-  document.getElementById('pm-assign-toggle').classList.toggle('on',hasAssignments);
-  document.getElementById('pm-assign-section').style.display=hasAssignments?'block':'none';
-}
+function toggleGlobal(){isGlobal=!isGlobal;document.getElementById('pm-global-toggle').classList.toggle('on',isGlobal)}
+function toggleOutreach(){isOutreach=!isOutreach;document.getElementById('pm-outreach-toggle').classList.toggle('on',isOutreach)}
+function toggleShowOnLanding(){isShowOnLanding=!isShowOnLanding;document.getElementById('pm-landing-toggle').classList.toggle('on',isShowOnLanding)}
+function toggleAssign(){hasAssignments=!hasAssignments;document.getElementById('pm-assign-toggle').classList.toggle('on',hasAssignments);document.getElementById('pm-assign-section').style.display=hasAssignments?'block':'none'}
 
 function deriveVisibility(global,outreach,assigned){
   // Outreach is its own exclusive grouping — doesn't appear in global
@@ -1562,17 +1665,20 @@ function toggleStudent(id){
 }
 
 function openNewPatternModal(){
-  editPid=null;domN=0;isGlobal=false;isOutreach=false;hasAssignments=false;selectedStudents=new Set();
+  editPid=null;domN=0;
+  isGlobal=true; // default to global
+  isOutreach=false;isShowOnLanding=false;hasAssignments=false;selectedStudents=new Set();
   document.getElementById('pm-title').textContent='New pattern map';
   document.getElementById('pm-name').value='';
   document.getElementById('pm-desc').value='';
-  document.getElementById('pm-desc-count').textContent='600 left';
+  document.getElementById('pm-desc-count').textContent='1500 left';
   document.getElementById('pm-main').value='';
   document.getElementById('domain-inputs').innerHTML='';
   buildCatPicker(null);
   document.getElementById('pm-category-picker').dataset.selected='';
-  document.getElementById('pm-global-toggle').classList.remove('on');
+  document.getElementById('pm-global-toggle').classList.add('on'); // global on by default
   document.getElementById("pm-outreach-toggle").classList.remove("on");
+  document.getElementById("pm-landing-toggle").classList.remove("on");
   document.getElementById("pm-assign-toggle").classList.remove("on");
   document.getElementById('pm-assign-section').style.display='none';
   renderStudentPicker([]);
@@ -1586,6 +1692,7 @@ function openEditModal(pid){
   // Derive toggle states from stored pattern
   isGlobal=pat.isGlobal||pat.visibility==='global'||pat.visibility==='global+private';
   isOutreach=pat.visibility==='outreach';
+  isShowOnLanding=pat.showOnLanding===true;
   const assigned=pat.assignedUsers||[];
   hasAssignments=assigned.length>0;
   selectedStudents=new Set(assigned.map(String));
@@ -1599,6 +1706,7 @@ function openEditModal(pid){
   document.getElementById('pm-category-picker').dataset.selected=pat.category||'';
   document.getElementById('pm-global-toggle').classList.toggle('on',isGlobal);
   document.getElementById('pm-outreach-toggle').classList.toggle('on',isOutreach);
+  document.getElementById('pm-landing-toggle').classList.toggle('on',isShowOnLanding);
   document.getElementById('pm-assign-toggle').classList.toggle('on',hasAssignments);
   document.getElementById('pm-assign-section').style.display=hasAssignments?'block':'none';
   renderStudentPicker(assigned);
@@ -1626,16 +1734,13 @@ function addDomainInput(tv='',bv=''){
 async function savePattern(){
   const name=document.getElementById('pm-name').value.trim();
   const mainBody=document.getElementById('pm-main').value.trim();
-  if(!name||!mainBody){alert('Pattern name and main script are required.');return}
-  const doms=[];
-  document.querySelectorAll('[id^="db-"]').forEach(b=>{
-    const n=b.id.replace('db-','');
-    const t=document.getElementById('dt-'+n)?.value.trim();
-    const bv=document.getElementById('dbody-'+n)?.value.trim();
-    if(t&&bv)doms.push({title:t,body:bv});
-  });
-  const category=getSelectedCat();
   const description=document.getElementById('pm-desc').value.trim().slice(0,1500);
+  const category=getSelectedCat();
+  // Validate mandatory fields
+  if(!name){alert('Please enter a pattern name.');return}
+  if(!description){alert('Please enter a description — this helps people understand what the pattern addresses.');return}
+  if(!category){alert('Please select a category from the Wheel of Life.');return}
+  if(!mainBody){alert('Please enter the main session script.');return}
   const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
   // Derive visibility — a pattern can be both global AND assigned
   const visibility=deriveVisibility(isGlobal,isOutreach,assignedUsers);
@@ -1643,6 +1748,7 @@ async function savePattern(){
   const pat={
     id:pid, name, description,
     category, visibility, assignedUsers,
+    showOnLanding: isShowOnLanding,
     main:{title:name+' — Main',body:mainBody},
     domains:doms,
     createdAt:editPid?(patterns.find(p=>p.id===editPid)?.createdAt||Date.now()):Date.now()
