@@ -256,7 +256,20 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <button class="spd" onclick="setPubSpeed(1.2,this)">1.2×</button>
         <button class="spd" onclick="setPubSpeed(1.5,this)">1.5×</button>
       </div>
-      <div id="pub-status" style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:24px">Tap play to listen</div>
+      <div id="pub-status" style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px">Tap play to listen</div>
+
+      <!-- Script text — collapsed by default, copy-protected -->
+      <button id="pub-script-toggle" onclick="togglePubScript()"
+        style="background:none;border:none;color:var(--amber);font-size:13px;cursor:pointer;
+          padding:0 0 10px;font-family:var(--sans);display:block;width:100%;text-align:center">
+        Show script text ↓
+      </button>
+      <div id="pub-script-body"
+        style="display:none;font-family:var(--serif);font-size:15px;line-height:1.85;
+          color:rgba(240,237,230,.8);white-space:pre-wrap;margin-bottom:20px;
+          user-select:none;-webkit-user-select:none;-moz-user-select:none;
+          pointer-events:none">
+      </div>
 
       <div id="pub-signup-prompt" style="display:none;background:var(--surface);border-radius:16px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,.06)">
         <div style="font-family:var(--serif);font-size:18px;color:var(--text);margin-bottom:8px">Go deeper</div>
@@ -781,6 +794,15 @@ function showLanding(){
   stopPublicPlay();
 }
 
+function togglePubScript(){
+  const b=document.getElementById('pub-script-body');
+  const t=document.getElementById('pub-script-toggle');
+  if(!b||!t)return;
+  const visible=b.style.display!=='none';
+  b.style.display=visible?'none':'block';
+  t.textContent=visible?'Show script text ↓':'Hide script ↑';
+}
+
 function showSinglePlayer(){
   document.getElementById('pub-landing').style.display='none';
   document.getElementById('pub-player').style.display='block';
@@ -792,6 +814,14 @@ function showSinglePlayer(){
   document.getElementById('pub-progress').style.width='0%';
   document.getElementById('pub-chunk-info').textContent='';
   document.getElementById('pub-signup-prompt').style.display='none';
+  // Populate script text (copy-protected — CSS user-select:none)
+  const scriptEl=document.getElementById('pub-script-body');
+  const toggleEl=document.getElementById('pub-script-toggle');
+  if(scriptEl){
+    scriptEl.textContent=p.main?.body||'';
+    scriptEl.style.display='none';
+  }
+  if(toggleEl)toggleEl.textContent='Show script text ↓';
   setPubIcon(false);
 }
 
@@ -1352,8 +1382,22 @@ function delPattern(pid){if(!confirm('Delete this pattern permanently? This cann
 
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
 function openPlayer(pid,idx){
-  curPid=pid;curIdx=idx;const pat=patterns.find(p=>p.id===pid);if(!pat)return;
-  stopAll();const scr=idx===0?pat.main:pat.domains[idx-1];if(!scr)return;
+  curPid=pid;curIdx=idx;
+  const pat=patterns.find(p=>p.id===pid);
+  if(!pat){console.error('Pattern not found:',pid);return}
+  stopAll();
+  const scr=idx===0?pat.main:pat.domains[idx-1];
+  if(!scr||!scr.body){
+    // Script missing — likely data not loaded yet, trigger a reload
+    setSyncState('syncing');
+    loadFromServer().then(()=>{
+      const pat2=patterns.find(p=>p.id===pid);
+      const scr2=idx===0?pat2?.main:pat2?.domains[idx-1];
+      if(scr2?.body) openPlayer(pid,idx);
+      else alert('Session script not available. Please try again.');
+    });
+    return;
+  }
   const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0;
   document.getElementById('p-eyebrow').textContent=idx===0?'Main session':`Domain ${idx} · ${pat.name}`;
   document.getElementById('p-title').textContent=scr.title;
@@ -1366,7 +1410,7 @@ function openPlayer(pid,idx){
   updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('player-back-label').textContent=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
-  const showComplete=!!ap; // show for any opted-in pattern
+  const showComplete=!!ap;
   document.getElementById('complete-btn').style.display=showComplete?'block':'none';
   if(showComplete) updateCompleteBtn();
   setPlayIcon(false);playRate=cfg.speed||1;
@@ -1741,6 +1785,14 @@ async function savePattern(){
   if(!description){alert('Please enter a description — this helps people understand what the pattern addresses.');return}
   if(!category){alert('Please select a category from the Wheel of Life.');return}
   if(!mainBody){alert('Please enter the main session script.');return}
+  // Collect domain scripts
+  const doms=[];
+  document.querySelectorAll('[id^="db-"]').forEach(b=>{
+    const n=b.id.replace('db-','');
+    const t=document.getElementById('dt-'+n)?.value.trim();
+    const bv=document.getElementById('dbody-'+n)?.value.trim();
+    if(t&&bv)doms.push({title:t,body:bv});
+  });
   const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
   // Derive visibility — a pattern can be both global AND assigned
   const visibility=deriveVisibility(isGlobal,isOutreach,assignedUsers);
