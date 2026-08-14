@@ -199,28 +199,29 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 <div id="public-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:400;overflow-y:auto;-webkit-overflow-scrolling:touch">
 
   <!-- TOP BAR -->
-  <div style="position:sticky;top:0;background:rgba(20,20,20,.95);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.07);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10">
+  <div style="position:sticky;top:0;background:rgba(20,20,20,.96);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.07);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10">
     <div style="font-family:var(--serif);font-size:20px;color:var(--text)">WEZA</div>
-    <button onclick="showAuthFromPublic('login')" class="btn btn-primary" style="padding:8px 18px;font-size:14px">Sign in</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="showAuthFromPublic('login')" class="btn btn-ghost" style="padding:7px 14px;font-size:13px">Sign in</button>
+      <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="padding:7px 14px;font-size:13px">Create account</button>
+    </div>
   </div>
 
   <!-- LANDING MODE (shown when no ?pattern param) -->
   <div id="pub-landing" style="display:none">
     <div style="max-width:860px;margin:0 auto;padding:28px 20px 80px">
-      <!-- Compact hero -->
-      <div style="margin-bottom:24px">
-        <div style="font-family:var(--serif);font-size:24px;font-weight:normal;line-height:1.3;color:var(--text);margin-bottom:8px">Somatic healing,<br>pattern by pattern.</div>
-        <div style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px;max-width:540px">Guided audio sessions that meet you inside emotional patterns. Try any session below — no account needed.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="padding:9px 20px;font-size:14px">Create free account</button>
-          <button onclick="showAuthFromPublic('login')" class="btn btn-ghost" style="padding:9px 20px;font-size:14px">Sign in</button>
-        </div>
+      <!-- Minimal hero — patterns are the CTA -->
+      <div style="padding:24px 0 16px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:16px">
+        <div style="font-family:var(--serif);font-size:22px;font-weight:normal;line-height:1.3;color:var(--text);margin-bottom:6px">Somatic healing,<br>pattern by pattern.</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.6">Guided audio sessions that meet you inside emotional patterns. Try any session — no account needed.</div>
       </div>
       <!-- Search -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
         <div class="search-bar" style="margin-bottom:0;flex:1">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input type="text" placeholder="Search sessions…" id="pub-search" oninput="filterPubSearch(this.value)">
+          <input type="text" id="pub-search" oninput="filterPubSearch(this.value)"
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            style="background:none;border:none;color:var(--text);font-size:15px;flex:1;outline:none;font-family:var(--sans)">
         </div>
         <div id="pub-count" style="font-size:12px;color:var(--muted);white-space:nowrap"></div>
       </div>
@@ -234,8 +235,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
     <div style="max-width:480px;margin:0 auto;padding:28px 20px 80px">
       <button onclick="showLanding()" style="background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:0 0 20px;font-family:var(--sans)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><path d="M15 18l-6-6 6-6"/></svg>All sessions
-      </button>
-      <div id="pub-eyebrow" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:8px"></div>
+      </button>      <div id="pub-eyebrow" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:8px"></div>
       <div id="pub-title" style="font-family:var(--serif);font-size:24px;font-weight:normal;line-height:1.35;margin-bottom:8px;color:var(--text)"></div>
       <div id="pub-desc" style="font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:28px"></div>
 
@@ -688,6 +688,7 @@ async function loadLandingPatterns(){
       publicPatterns=data.patterns||[];
       if(countEl)countEl.textContent=`${publicPatterns.length} session${publicPatterns.length!==1?'s':''}`;
       renderLandingList();
+      startPlaceholderCycle();
     }
   }catch(e){if(countEl)countEl.textContent=''}
 }
@@ -779,19 +780,58 @@ function filterPubCat(catId,btn){
   if(cta)cta.style.display=catId===null?'flex':'none';
 }
 
-function openPublicPattern(pid){
-  publicPattern=publicPatterns.find(p=>p.id===pid)||null;
-  if(!publicPattern)return;
+async function openPublicPattern(pid){
   stopPublicPlay();
-  showSinglePlayer();
-  // Update URL without reload
+  // Show loading state
+  document.getElementById('pub-landing').style.display='none';
+  document.getElementById('pub-player').style.display='block';
+  document.getElementById('pub-title').textContent='Loading…';
+  document.getElementById('pub-status').textContent='';
   history.pushState(null,'',`?pattern=${pid}`);
+  // Always fetch full pattern (listing only has metadata, no scripts)
+  try{
+    const res=await fetch(`/api/public?id=${encodeURIComponent(pid)}`);
+    if(!res.ok)throw new Error('not found');
+    publicPattern=await res.json();
+  }catch(e){
+    // Fallback to cached listing data (won't play but shows name)
+    publicPattern=publicPatterns.find(p=>p.id===pid)||null;
+  }
+  if(!publicPattern){showLanding();return}
+  showSinglePlayer();
+}
+
+const PUB_PLACEHOLDERS=[
+  'feeling anxious in conversations…',
+  'relationship blame cycle…',
+  'grief of feeling behind in life…',
+  'missing an ex…',
+  'avoiding opportunities…',
+  'shrinking around authority figures…',
+  'fear of being seen…',
+  'never feeling good enough…',
+  'exhausted by connection…',
+  'self-sabotage before success…'
+];
+let pubPlaceholderIdx=0, pubPlaceholderTimer=null;
+function startPlaceholderCycle(){
+  const el=document.getElementById('pub-search');if(!el)return;
+  clearInterval(pubPlaceholderTimer);
+  el.placeholder=PUB_PLACEHOLDERS[0];
+  pubPlaceholderTimer=setInterval(()=>{
+    if(document.activeElement===el)return; // don't change while user is typing
+    pubPlaceholderIdx=(pubPlaceholderIdx+1)%PUB_PLACEHOLDERS.length;
+    el.placeholder=PUB_PLACEHOLDERS[pubPlaceholderIdx];
+  },2800);
 }
 
 function showLanding(){
   document.getElementById('pub-landing').style.display='block';
   document.getElementById('pub-player').style.display='none';
   stopPublicPlay();
+  // Clear URL param when going back to landing
+  history.pushState(null,'',location.pathname);
+  setTimeout(startPlaceholderCycle,100);
 }
 
 function togglePubScript(){
