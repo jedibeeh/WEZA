@@ -75,7 +75,8 @@ export default async function handler(req, res) {
       const patterns = patRows.rows.map(r => ({
         id: r.id,
         name: r.name,
-        category: r.category,
+        // Normalise category to always be an array
+        category: Array.isArray(r.category) ? r.category : (r.category ? [r.category] : []),
         visibility: r.visibility,
         assignedUsers: r.assigned_users || [],
         ...(r.data || {})
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
           ${id},
           ${userId},
           ${name},
-          ${category || null},
+          ${JSON.stringify(Array.isArray(category)?category.map(Number).filter(Boolean):(category?[Number(category)]:[])) }::jsonb,
           ${visibility || 'draft'},
           ${JSON.stringify(assignedInts)}::jsonb,
           ${dataJson}::jsonb,
@@ -114,7 +115,7 @@ export default async function handler(req, res) {
         )
         ON CONFLICT (id) DO UPDATE SET
           name           = EXCLUDED.name,
-          category       = EXCLUDED.category,
+          category       = EXCLUDED.category::jsonb,
           visibility     = EXCLUDED.visibility,
           assigned_users = EXCLUDED.assigned_users,
           data           = EXCLUDED.data,
@@ -157,14 +158,26 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
       const { active, cfg, updatedAt } = req.body || {};
       const cfgWithTs = { ...(cfg || {}), updatedAt: updatedAt || Date.now() };
-      await sql`
-        INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
-        VALUES (${userId}, '[]', ${JSON.stringify(active || [])}::jsonb, ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
-          active     = EXCLUDED.active,
-          cfg        = EXCLUDED.cfg,
-          updated_at = NOW()
-      `;
+      if (active !== undefined) {
+        // Full save including active
+        await sql`
+          INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
+          VALUES (${userId}, '[]', ${JSON.stringify(active)}::jsonb, ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
+          ON CONFLICT (user_id) DO UPDATE SET
+            active     = EXCLUDED.active,
+            cfg        = EXCLUDED.cfg,
+            updated_at = NOW()
+        `;
+      } else {
+        // cfg-only save — do NOT touch active (preserves practitioner-assigned patterns)
+        await sql`
+          INSERT INTO user_data (user_id, patterns, active, cfg, updated_at)
+          VALUES (${userId}, '[]', '[]', ${JSON.stringify(cfgWithTs)}::jsonb, NOW())
+          ON CONFLICT (user_id) DO UPDATE SET
+            cfg        = EXCLUDED.cfg,
+            updated_at = NOW()
+        `;
+      }
       return res.status(200).json({ ok: true });
     }
 
