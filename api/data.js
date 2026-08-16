@@ -107,7 +107,7 @@ export default async function handler(req, res) {
           ${id},
           ${userId},
           ${name},
-          ${JSON.stringify(Array.isArray(category)?category.map(Number).filter(Boolean):(category?[Number(category)]:[])) }::jsonb,
+          ${JSON.stringify(Array.isArray(category) ? category.map(Number).filter(Boolean) : (category ? [Number(category)] : []))}::jsonb,
           ${visibility || 'draft'},
           ${JSON.stringify(assignedInts)}::jsonb,
           ${dataJson}::jsonb,
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
         )
         ON CONFLICT (id) DO UPDATE SET
           name           = EXCLUDED.name,
-          category       = EXCLUDED.category::jsonb,
+          category       = EXCLUDED.category,
           visibility     = EXCLUDED.visibility,
           assigned_users = EXCLUDED.assigned_users,
           data           = EXCLUDED.data,
