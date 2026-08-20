@@ -232,14 +232,61 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 
   <!-- SINGLE PATTERN PLAYER MODE (shown when ?pattern=id) -->
   <div id="pub-player" style="display:none">
-    <div style="max-width:480px;margin:0 auto;padding:28px 20px 80px">
-      <button onclick="showLanding()" style="background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:0 0 20px;font-family:var(--sans)">
+    <div style="max-width:480px;margin:0 auto;padding:20px 20px 80px">
+      <button onclick="showLanding()" style="background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:0 0 16px;font-family:var(--sans)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14"><path d="M15 18l-6-6 6-6"/></svg>All sessions
-      </button>      <div id="pub-eyebrow" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:8px"></div>
-      <div id="pub-title" style="font-family:var(--serif);font-size:24px;font-weight:normal;line-height:1.35;margin-bottom:8px;color:var(--text)"></div>
-      <div id="pub-desc" style="font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:28px"></div>
+      </button>
+      <div id="pub-eyebrow" style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:6px"></div>
+      <div id="pub-title" style="font-family:var(--serif);font-size:22px;font-weight:normal;line-height:1.3;margin-bottom:6px;color:var(--text)"></div>
+      <div id="pub-desc" style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px"></div>
 
-      <div style="position:relative;width:68px;height:68px;margin:0 auto 16px">
+      <!-- SCRIPT TEXT — partially visible, chunk-highlighted, expandable -->
+      <div id="pub-script-wrap" style="position:relative;margin-bottom:14px">
+        <div id="pub-script-body"
+          style="font-family:var(--serif);font-size:14px;line-height:1.8;
+            color:rgba(240,237,230,.75);margin-bottom:0;
+            user-select:none;-webkit-user-select:none;pointer-events:none;
+            max-height:120px;overflow:hidden;transition:max-height .4s ease">
+        </div>
+        <!-- Fade mask when collapsed -->
+        <div id="pub-script-fade" style="position:absolute;bottom:0;left:0;right:0;height:40px;
+          background:linear-gradient(transparent,var(--bg));pointer-events:none"></div>
+      </div>
+      <button id="pub-script-toggle" onclick="togglePubScript()"
+        style="background:none;border:none;color:var(--amber);font-size:12px;cursor:pointer;
+          padding:0 0 14px;font-family:var(--sans);display:block;width:100%;text-align:center">
+        Show full script ↓
+      </button>
+
+      <!-- VOICE CONTROLS — compact row above player -->
+      <div style="background:var(--surface);border-radius:12px;padding:10px 14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <!-- Voice -->
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:11px;color:var(--muted)">Voice</span>
+            <button onclick="cyclePubVoice()" style="background:var(--surface2);border:1px solid rgba(255,255,255,.08);color:var(--amber);font-size:11px;padding:4px 8px;border-radius:8px;cursor:pointer;font-family:var(--sans);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="pub-voice-btn">Change</button>
+          </div>
+          <div style="width:1px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+          <!-- Pitch -->
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:80px">
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap">Pitch <span id="pub-pitch-val" style="color:var(--amber)">0.95</span></span>
+            <input type="range" min="0.5" max="1.5" step="0.05" value="0.95" id="pub-pitch-slider"
+              oninput="pubPitch=parseFloat(this.value);document.getElementById('pub-pitch-val').textContent=parseFloat(this.value).toFixed(2)"
+              style="flex:1;accent-color:var(--amber)">
+          </div>
+          <div style="width:1px;height:20px;background:rgba(255,255,255,.08);flex-shrink:0"></div>
+          <!-- Speed -->
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:80px">
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap">Speed <span id="pub-speed-val" style="color:var(--amber)">1×</span></span>
+            <input type="range" min="0.5" max="2" step="0.1" value="1" id="pub-speed-slider"
+              oninput="pubRate=parseFloat(this.value);document.getElementById('pub-speed-val').textContent=parseFloat(this.value).toFixed(1)+'×'"
+              style="flex:1;accent-color:var(--amber)">
+          </div>
+        </div>
+      </div>
+
+      <!-- PLAY BUTTON -->
+      <div style="position:relative;width:68px;height:68px;margin:0 auto 10px">
         <div style="position:absolute;inset:-10px;border-radius:50%;border:1.5px solid var(--amber);opacity:0;animation:breathe 3s ease-in-out infinite"></div>
         <div style="position:absolute;inset:-10px;border-radius:50%;border:1.5px solid var(--amber);opacity:0;animation:breathe 3s ease-in-out 1s infinite"></div>
         <button id="pub-play-btn" onclick="togglePublicPlay()"
@@ -248,28 +295,9 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         </button>
       </div>
 
-      <div class="progress-bar-wrap" style="margin:0 0 4px"><div class="progress-bar" id="pub-progress" style="width:0%"></div></div>
-      <div id="pub-chunk-info" style="text-align:center;font-size:11px;color:var(--dim);margin-bottom:12px"></div>
-      <div class="speed-row" style="margin-bottom:16px">
-        <button class="spd" onclick="setPubSpeed(0.8,this)">0.8×</button>
-        <button class="spd active" onclick="setPubSpeed(1,this)">1×</button>
-        <button class="spd" onclick="setPubSpeed(1.2,this)">1.2×</button>
-        <button class="spd" onclick="setPubSpeed(1.5,this)">1.5×</button>
-      </div>
+      <div class="progress-bar-wrap" style="margin:0 0 3px"><div class="progress-bar" id="pub-progress" style="width:0%"></div></div>
+      <div id="pub-chunk-info" style="text-align:center;font-size:11px;color:var(--dim);margin-bottom:6px"></div>
       <div id="pub-status" style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px">Tap play to listen</div>
-
-      <!-- Script text — collapsed by default, copy-protected -->
-      <button id="pub-script-toggle" onclick="togglePubScript()"
-        style="background:none;border:none;color:var(--amber);font-size:13px;cursor:pointer;
-          padding:0 0 10px;font-family:var(--sans);display:block;width:100%;text-align:center">
-        Show script text ↓
-      </button>
-      <div id="pub-script-body"
-        style="display:none;font-family:var(--serif);font-size:15px;line-height:1.85;
-          color:rgba(240,237,230,.8);white-space:pre-wrap;margin-bottom:20px;
-          user-select:none;-webkit-user-select:none;-moz-user-select:none;
-          pointer-events:none">
-      </div>
 
       <div id="pub-signup-prompt" style="display:none;background:var(--surface);border-radius:16px;padding:20px;text-align:center;border:1px solid rgba(255,255,255,.06)">
         <div style="font-family:var(--serif);font-size:18px;color:var(--text);margin-bottom:8px">Go deeper</div>
@@ -630,31 +658,90 @@ function getMiniGuideChunks(){
 
 // ─── PUBLIC PLAYER (no auth, ?pattern=id) ────────────────────────────────────
 let publicPattern=null, pubChunks=[], pubChunkIdx=0, pubPlaying=false, pubRate=1;
-let publicPatterns=[]; // all outreach patterns for landing page
+let publicPatterns=[];
+let pubVoiceIdx=0, pubPitch=0.95, pubScriptExpanded=false;
+
+// ─── PUBLIC VOICE CONTROLS ───────────────────────────────────────────────────
+function cyclePubVoice(){
+  const enVoices=synth.getVoices().filter(v=>v.lang.startsWith('en'));
+  if(!enVoices.length)return;
+  pubVoiceIdx=(pubVoiceIdx+1)%enVoices.length;
+  const v=enVoices[pubVoiceIdx];
+  const btn=document.getElementById('pub-voice-btn');
+  if(btn)btn.textContent=v.name.length>12?v.name.slice(0,12)+'…':v.name;
+  // Auto-preview
+  if(pubPlaying){const wasPlaying=pubPlaying;pubChunkIdx=Math.max(0,pubChunkIdx-1);speakPubChunk();}
+  else{
+    const utt=new SpeechSynthesisUtterance('Let the words land where they land.');
+    utt.voice=v;utt.rate=pubRate;utt.pitch=pubPitch;synth.cancel();synth.speak(utt);
+  }
+}
+
+function initPubVoice(){
+  const enVoices=synth.getVoices().filter(v=>v.lang.startsWith('en'));
+  if(!enVoices.length)return;
+  // Pick a natural voice if available
+  const pref=['Samantha','Karen','Daniel','Oliver','Aaron','Google UK English Female'];
+  const found=pref.reduce((b,n)=>b||enVoices.find(x=>x.name.includes(n)),null);
+  if(found)pubVoiceIdx=enVoices.indexOf(found);
+  const v=enVoices[pubVoiceIdx];
+  const btn=document.getElementById('pub-voice-btn');
+  if(btn&&v)btn.textContent=v.name.length>12?v.name.slice(0,12)+'…':v.name;
+}
+
+// ─── PUBLIC SCRIPT DISPLAY WITH CHUNK HIGHLIGHTING ──────────────────────────
+function renderPubScript(chunks){
+  const el=document.getElementById('pub-script-body');if(!el)return;
+  // Render each chunk as a labelled span for highlighting
+  el.innerHTML=chunks.map((c,i)=>
+    `<span id="pub-chunk-span-${i}" style="display:block;margin-bottom:0.6em;border-radius:4px;padding:2px 4px;transition:background .3s,color .3s">${c}</span>`
+  ).join('');
+}
+
+function highlightPubChunk(idx){
+  document.querySelectorAll('[id^="pub-chunk-span-"]').forEach((el,i)=>{
+    if(i===idx){
+      el.style.background='rgba(200,151,90,0.18)';
+      el.style.color='var(--text)';
+      // Scroll into view within the script container
+      const wrap=document.getElementById('pub-script-body');
+      if(wrap){
+        const top=el.offsetTop-wrap.offsetTop;
+        if(pubScriptExpanded) wrap.scrollTop=Math.max(0,top-20);
+      }
+    } else {
+      el.style.background='';
+      el.style.color='rgba(240,237,230,.75)';
+    }
+  });
+}
+
+function togglePubScript(){
+  pubScriptExpanded=!pubScriptExpanded;
+  const body=document.getElementById('pub-script-body');
+  const fade=document.getElementById('pub-script-fade');
+  const btn=document.getElementById('pub-script-toggle');
+  if(body){
+    body.style.maxHeight=pubScriptExpanded?'60vh':'120px';
+    body.style.overflowY=pubScriptExpanded?'auto':'hidden';
+  }
+  if(fade)fade.style.display=pubScriptExpanded?'none':'block';
+  if(btn)btn.textContent=pubScriptExpanded?'Collapse script ↑':'Show full script ↓';
+}
 
 async function checkPublicPattern(){
-  // Always show public screen (landing or player)
   document.getElementById('public-screen').style.display='block';
-
   const params=new URLSearchParams(location.search);
   const pid=params.get('pattern');
-
   if(pid){
-    // Single pattern mode
     try{
       const res=await fetch(`/api/public?id=${encodeURIComponent(pid)}`);
       if(res.ok){
         publicPattern=await res.json();
-        if(publicPattern.id){
-          showSinglePlayer();
-          return true;
-        }
+        if(publicPattern.id){showSinglePlayer();return true;}
       }
     }catch(e){}
-    // Pattern not found — fall through to landing
   }
-
-  // Landing page mode — load all outreach patterns
   showLanding();
   loadLandingPatterns();
   return true;
@@ -699,50 +786,27 @@ function renderLandingList(){
     el.innerHTML='<div style="color:var(--muted);font-size:14px;text-align:center;padding:30px 0">No public sessions available yet.</div>';
     return;
   }
-
-  // Build category filter tabs
   const catIds=[...new Set(publicPatterns.map(p=>p.category).filter(Boolean))].sort((a,b)=>a-b);
   const tabsHtml=`<div id="pub-cat-tabs" style="display:flex;gap:6px;overflow-x:auto;padding:12px 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch">
     <button class="pub-tab active" onclick="filterPubCat(null,this)">All (${publicPatterns.length})</button>
-    ${catIds.map(cid=>{
-      const cat=WHEEL.find(w=>w.id===cid);
-      const count=publicPatterns.filter(p=>p.category===cid).length;
-      return cat?`<button class="pub-tab" onclick="filterPubCat(${cid},this)">${cat.name} (${count})</button>`:'';
-    }).join('')}
+    ${catIds.map(cid=>{const cat=WHEEL.find(w=>w.id===cid);const count=publicPatterns.filter(p=>p.category===cid).length;return cat?`<button class="pub-tab" onclick="filterPubCat(${cid},this)">${cat.name} (${count})</button>`:''}).join('')}
   </div>`;
-
-  // Group by category
   const grouped={};
-  publicPatterns.forEach(p=>{
-    const k=p.category||0;
-    if(!grouped[k])grouped[k]=[];
-    grouped[k].push(p);
-  });
-
+  publicPatterns.forEach(p=>{const k=p.category||0;if(!grouped[k])grouped[k]=[];grouped[k].push(p)});
   let html=tabsHtml+'<div id="pub-pattern-grid">';
-  let ctaShown=false;
-  let sectionCount=0;
-
-  // Uncategorised first
-  if(grouped[0]){
-    html+=renderPubSection(null,grouped[0]);
-    sectionCount++;
-  }
+  let ctaShown=false,sectionCount=0;
+  if(grouped[0]){html+=renderPubSection(null,grouped[0]);sectionCount++;}
   WHEEL.forEach(w=>{
     if(!grouped[w.id])return;
-    // Insert CTA after 2nd category section
     if(sectionCount===2&&!ctaShown){
       html+=`<div style="margin:16px 0;background:var(--a-soft);border:1px solid var(--a-border);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-        <div style="flex:1;min-width:200px">
-          <div style="font-family:var(--serif);font-size:16px;color:var(--text);margin-bottom:4px">Track your healing journey</div>
-          <div style="font-size:13px;color:var(--muted);line-height:1.5">Create a free account to save your progress across sessions and access the full library.</div>
-        </div>
+        <div style="flex:1;min-width:200px"><div style="font-family:var(--serif);font-size:16px;color:var(--text);margin-bottom:4px">Track your healing journey</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.5">Create a free account to save your progress across sessions and access the full library.</div></div>
         <button onclick="showAuthFromPublic('register')" class="btn btn-primary" style="flex-shrink:0;white-space:nowrap">Create free account</button>
       </div>`;
       ctaShown=true;
     }
-    html+=renderPubSection(w,grouped[w.id]);
-    sectionCount++;
+    html+=renderPubSection(w,grouped[w.id]);sectionCount++;
   });
   html+='</div>';
   el.innerHTML=html;
@@ -753,78 +817,53 @@ function renderPubSection(cat,patterns){
   return `<div class="pub-section" data-cat="${cat?cat.id:0}">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:18px 0 10px">${label}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
-      ${patterns.map(p=>`
-        <div onclick="openPublicPattern('${p.id}')"
-          style="background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px 18px;cursor:pointer;transition:background .15s"
-          onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
-          <div style="font-family:var(--serif);font-size:16px;font-weight:normal;line-height:1.35;margin-bottom:6px;color:var(--text)">${p.name}</div>
-          ${p.description?`<div style="font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:10px">${p.description.length>130?p.description.slice(0,130)+'…':p.description}</div>`:''}
-          <div style="font-size:12px;color:var(--amber);display:flex;align-items:center;gap:5px">
-            <span style="width:18px;height:18px;border-radius:50%;background:var(--a-soft);display:inline-flex;align-items:center;justify-content:center">
-              <svg viewBox="0 0 10 10" width="8" height="8" fill="var(--amber)"><polygon points="3,2 8,5 3,8"/></svg>
-            </span>Play session
-          </div>
-        </div>`).join('')}
-    </div>
-  </div>`;
+      ${patterns.map(p=>`<div onclick="openPublicPattern('${p.id}')"
+        style="background:var(--surface);border:1px solid rgba(255,255,255,.05);border-radius:14px;padding:16px 18px;cursor:pointer;transition:background .15s"
+        onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background='var(--surface)'">
+        <div style="font-family:var(--serif);font-size:16px;font-weight:normal;line-height:1.35;margin-bottom:6px;color:var(--text)">${p.name}</div>
+        ${p.description?`<div style="font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:10px">${p.description.length>130?p.description.slice(0,130)+'…':p.description}</div>`:''}
+        <div style="font-size:12px;color:var(--amber);display:flex;align-items:center;gap:5px">
+          <span style="width:18px;height:18px;border-radius:50%;background:var(--a-soft);display:inline-flex;align-items:center;justify-content:center"><svg viewBox="0 0 10 10" width="8" height="8" fill="var(--amber)"><polygon points="3,2 8,5 3,8"/></svg></span>Play session
+        </div></div>`).join('')}
+    </div></div>`;
 }
 
 function filterPubCat(catId,btn){
   document.querySelectorAll('.pub-tab').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  document.querySelectorAll('.pub-section').forEach(s=>{
-    s.style.display=(catId===null||String(s.dataset.cat)===String(catId))?'block':'none';
-  });
-  // Hide/show CTA (keep visible when showing all)
+  document.querySelectorAll('.pub-section').forEach(s=>{s.style.display=(catId===null||String(s.dataset.cat)===String(catId))?'block':'none'});
   const cta=document.querySelector('#pub-pattern-grid>div[style*="a-soft"]');
   if(cta)cta.style.display=catId===null?'flex':'none';
 }
 
 async function openPublicPattern(pid){
   stopPublicPlay();
-  // Show loading state
   document.getElementById('pub-landing').style.display='none';
   document.getElementById('pub-player').style.display='block';
   document.getElementById('pub-title').textContent='Loading…';
   document.getElementById('pub-status').textContent='';
   history.pushState(null,'',`?pattern=${pid}`);
-  // Always fetch full pattern (listing only has metadata, no scripts)
   try{
     const res=await fetch(`/api/public?id=${encodeURIComponent(pid)}`);
     if(!res.ok)throw new Error('not found');
     publicPattern=await res.json();
-  }catch(e){
-    // Fallback to cached listing data (won't play but shows name)
-    publicPattern=publicPatterns.find(p=>p.id===pid)||null;
-  }
+  }catch(e){publicPattern=publicPatterns.find(p=>p.id===pid)||null;}
   if(!publicPattern){showLanding();return}
   showSinglePlayer();
 }
 
-const PUB_PLACEHOLDERS=[
-  'feeling anxious in conversations…',
-  'relationship blame cycle…',
-  'grief of feeling behind in life…',
-  'missing an ex…',
-  'avoiding opportunities…',
-  'shrinking around authority figures…',
-  'fear of being seen…',
-  'never feeling good enough…',
-  'exhausted by connection…',
-  'self-sabotage before success…'
-];
-let pubPlaceholderIdx=0, pubPlaceholderTimer=null;
+const PUB_PLACEHOLDERS=['feeling anxious in conversations…','relationship blame cycle…','grief of feeling behind in life…','missing an ex…','avoiding opportunities…','shrinking around authority figures…','fear of being seen…','never feeling good enough…','exhausted by connection…','self-sabotage before success…'];
+let pubPlaceholderIdx=0,pubPlaceholderTimer=null;
 function startPlaceholderCycle(){
   const el=document.getElementById('pub-search');if(!el)return;
   clearInterval(pubPlaceholderTimer);
   el.placeholder=PUB_PLACEHOLDERS[0];
   pubPlaceholderTimer=setInterval(()=>{
-    if(document.activeElement===el)return; // don't change while user is typing
+    if(document.activeElement===el)return;
     pubPlaceholderIdx=(pubPlaceholderIdx+1)%PUB_PLACEHOLDERS.length;
     el.placeholder=PUB_PLACEHOLDERS[pubPlaceholderIdx];
   },2800);
 }
-
 function showLanding(){
   document.getElementById('pub-landing').style.display='block';
   document.getElementById('pub-player').style.display='none';
@@ -854,45 +893,66 @@ function showSinglePlayer(){
   document.getElementById('pub-progress').style.width='0%';
   document.getElementById('pub-chunk-info').textContent='';
   document.getElementById('pub-signup-prompt').style.display='none';
-  // Populate script text (copy-protected — CSS user-select:none)
-  const scriptEl=document.getElementById('pub-script-body');
-  const toggleEl=document.getElementById('pub-script-toggle');
-  if(scriptEl){
-    scriptEl.textContent=p.main?.body||'';
-    scriptEl.style.display='none';
-  }
-  if(toggleEl)toggleEl.textContent='Show script text ↓';
+  pubScriptExpanded=false;
+  const body=(p.main?.body||'').replace(/\[GUIDE\]/g,'');
+  pubChunks=body.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+  pubChunkIdx=0;
+  renderPubScript(pubChunks);
+  const scriptBody=document.getElementById('pub-script-body');
+  const fade=document.getElementById('pub-script-fade');
+  const toggle=document.getElementById('pub-script-toggle');
+  if(scriptBody){scriptBody.style.maxHeight='120px';scriptBody.style.overflowY='hidden';}
+  if(fade)fade.style.display='block';
+  if(toggle)toggle.textContent='Show full script ↓';
   setPubIcon(false);
+  if(synth.getVoices().length>0)initPubVoice();
+  else{const prev=synth.onvoiceschanged;synth.onvoiceschanged=()=>{initPubVoice();if(prev)prev();};}
+  const ps=document.getElementById('pub-pitch-slider');if(ps){ps.value=pubPitch;document.getElementById('pub-pitch-val').textContent=pubPitch.toFixed(2);}
+  const ss=document.getElementById('pub-speed-slider');if(ss){ss.value=pubRate;document.getElementById('pub-speed-val').textContent=pubRate.toFixed(1)+'×';}
 }
 
 function togglePublicPlay(){if(pubPlaying)stopPublicPlay();else startPublicPlay()}
 
 function startPublicPlay(){
   const p=publicPattern;if(!p)return;
-  const body=(p.main?.body||'').replace(/\[GUIDE\]/g,'');
-  pubChunks=body.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+  if(!pubChunks.length){
+    const body=(p.main?.body||'').replace(/\[GUIDE\]/g,'');
+    pubChunks=body.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
+    renderPubScript(pubChunks);
+  }
   pubChunkIdx=0;pubPlaying=true;
   setPubIcon(true);
   document.getElementById('pub-status').textContent='Playing…';
-  speakPublicChunk();
+  speakPubChunk();
 }
 
 function speakPublicChunk(){
-  if(!pubPlaying||pubChunkIdx>=pubChunks.length){onPublicEnd();return}
+  speakPubChunk();
+}
+
+function speakPubChunk(){
+  if(!pubPlaying||pubChunkIdx>=pubChunks.length){onPublicEnd();return;}
   synth.cancel();
-  const utt=new SpeechSynthesisUtterance(pubChunks[pubChunkIdx]);
-  utt.rate=pubRate;utt.pitch=0.95;utt.volume=1;
-  if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
-  const pct=Math.round(pubChunkIdx/pubChunks.length*100);
-  document.getElementById('pub-progress').style.width=pct+'%';
-  document.getElementById('pub-chunk-info').textContent=`${pubChunkIdx+1} / ${pubChunks.length}`;
-  utt.onend=()=>{if(!pubPlaying)return;pubChunkIdx++;speakPublicChunk()};
-  utt.onerror=(e)=>{if(e.error==='interrupted')return;pubPlaying=false;setPubIcon(false);document.getElementById('pub-status').textContent='Stopped'};
-  synth.speak(utt);
+  const gen=pubChunkIdx;
+  setTimeout(()=>{
+    if(!pubPlaying||pubChunkIdx!==gen)return;
+    const utt=new SpeechSynthesisUtterance(pubChunks[pubChunkIdx]);
+    utt.rate=pubRate;utt.pitch=pubPitch;utt.volume=1;
+    const enVoices=synth.getVoices().filter(v=>v.lang.startsWith('en'));
+    if(enVoices.length>0)utt.voice=enVoices[pubVoiceIdx%enVoices.length];
+    const pct=Math.round(pubChunkIdx/pubChunks.length*100);
+    document.getElementById('pub-progress').style.width=pct+'%';
+    document.getElementById('pub-chunk-info').textContent=`${pubChunkIdx+1} / ${pubChunks.length}`;
+    highlightPubChunk(pubChunkIdx);
+    utt.onend=()=>{if(!pubPlaying)return;pubChunkIdx++;speakPubChunk();};
+    utt.onerror=(e)=>{if(e.error==='interrupted')return;pubPlaying=false;setPubIcon(false);document.getElementById('pub-status').textContent='Stopped';};
+    synth.speak(utt);
+  },50);
 }
 
 function onPublicEnd(){
   pubPlaying=false;setPubIcon(false);
+  highlightPubChunk(-1);
   document.getElementById('pub-progress').style.width='100%';
   document.getElementById('pub-chunk-info').textContent='';
   document.getElementById('pub-status').textContent='Complete';
@@ -901,7 +961,8 @@ function onPublicEnd(){
 
 function stopPublicPlay(){
   synth.cancel();pubPlaying=false;setPubIcon(false);
-  document.getElementById('pub-status').textContent='Tap play to listen';
+  highlightPubChunk(-1);
+  const el=document.getElementById('pub-status');if(el)el.textContent='Tap play to listen';
 }
 
 function setPubIcon(p){
@@ -909,12 +970,7 @@ function setPubIcon(p){
   el.innerHTML=p?'<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>':'<path d="M8 5v14l11-7z"/>';
 }
 
-function setPubSpeed(r,btn){
-  pubRate=r;
-  document.querySelectorAll('#public-screen .spd').forEach(b=>b.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  if(pubPlaying){pubChunkIdx=Math.max(0,pubChunkIdx-1);speakPublicChunk();}
-}
+function setPubSpeed(r,btn){pubRate=r;}
 
 function showAuthFromPublic(mode='register'){
   stopPublicPlay();
