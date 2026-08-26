@@ -1692,7 +1692,15 @@ function speakChunk(){
     utt.rate=playRate;utt.pitch=cfg.pitch||0.95;utt.volume=1;
     if(voices.length>0)utt.voice=voices[cfg.voiceIdx%voices.length];
     updateScrubber();
-    utt.onend=()=>{if(!playing||gen!==speakGen)return;chunkIdx++;speakChunk()};
+    utt.onend=()=>{
+      if(!playing||gen!==speakGen)return;
+      chunkIdx++;
+      // Mark complete when 5 or fewer chunks remain — covers the outro
+      if(chunks.length>0 && (chunks.length-chunkIdx)<=5){
+        autoComplete();
+      }
+      speakChunk();
+    };
     utt.onerror=(e)=>{if(e.error==='interrupted'||gen!==speakGen)return;playing=false;setPlayIcon(false);releaseWake();trackingStop();document.getElementById('tts-status').textContent='Stopped'};
     synth.speak(utt);
   },50);
@@ -1830,8 +1838,13 @@ function autoComplete(){
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const total=1+pat.domains.length;
   if(curIdx===ap.progress&&ap.progress<total){
-    ap.progress++;ap.lastAt=Date.now();persist(true);
-    document.getElementById('tts-status').textContent='✓ Marked complete';
+    ap.progress++;ap.lastAt=Date.now();
+    activeDirty=true;
+    // Save immediately — don't debounce, user may navigate away in seconds
+    clearTimeout(saveTimer);
+    saveToServer();
+    const statusEl=document.getElementById('tts-status');
+    if(statusEl)statusEl.textContent='✓ Marked complete';
     updateCompleteBtn();
   }
 }
