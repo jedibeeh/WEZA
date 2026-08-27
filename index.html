@@ -1204,6 +1204,9 @@ function signOut(){
 let patterns=[], active=[], cfg={voiceIdx:0,pitch:0.95,speed:1,keepScreen:true,playGuide:true};
 let saveTimer=null, syncing=false, localUpdatedAt=0;
 let activeDirty=false;
+// Per-pattern last-known-updated timestamps (ms), populated from full loads only.
+// Used solely to diff against lightweight /api/data?meta=1 responses.
+let patternMeta={};
 
 async function loadFromServer(){
   lastFetchAt=Date.now();
@@ -1215,6 +1218,8 @@ async function loadFromServer(){
     if(res.status===401){signOut();return}
     const data=await res.json();
     patterns=data.patterns||[];
+    patternMeta={};
+    patterns.forEach(p=>{if(p.updatedAt)patternMeta[p.id]=new Date(p.updatedAt).getTime()});
     // Always apply active from server — it's the source of truth for assignments
     // We only skip if there's a confirmed local-only change not yet saved
     if(!activeDirty){
@@ -2138,15 +2143,76 @@ window.addEventListener('focus',()=>refreshIfStale());
 window.addEventListener('beforeunload',()=>{if(saveTimer){clearTimeout(saveTimer);saveToServer();}});
 setInterval(()=>refreshIfStale(),30000);
 
+// Prevents interval/focus/visibilitychange from ever firing overlapping
+// metadata requests — same protection the old code got implicitly from
+// awaiting a single loadFromServer() call.
+let metaSyncInFlight=false;
+
 async function refreshIfStale(){
   if(!token||playing)return;
   const now=Date.now();
   if(now-lastFetchAt<15000)return;
-  await loadFromServer();
-  const s=document.querySelector('.screen.active')?.id;
-  if(s==='home-screen')renderHome();
-  if(s==='library-screen')renderLibrary();
-  if(s==='map-screen'&&curPid)openMapScreen(curPid,mapFromScreen);
+  if(metaSyncInFlight)return;
+  metaSyncInFlight=true;
+  try{
+    const changed=await checkForChanges();
+    if(!changed)return;
+    // Full content fetch stays the single authoritative path — unchanged.
+    await loadFromServer();
+    const s=document.querySelector('.screen.active')?.id;
+    if(s==='home-screen')renderHome();
+    if(s==='library-screen')renderLibrary();
+    if(s==='map-screen'&&curPid)openMapScreen(curPid,mapFromScreen);
+  } finally {
+    metaSyncInFlight=false;
+  }
+}
+
+// Lightweight poll: fetches only pattern ids/updatedAt + active assignments,
+// never the JSONB script content. Returns true iff a full loadFromServer()
+// is actually warranted (addition, removal, content update, or a
+// server-side active-assignment change we don't already have locally).
+async function checkForChanges(){
+  lastFetchAt=Date.now();
+  try{
+    const res=await fetch('/api/data?meta=1',{headers:{Authorization:'Bearer '+token}});
+    if(res.status===401){signOut();return false}
+    const data=await res.json();
+    const remoteVersions=data.patternVersions||[];
+    const remoteActive=data.active||[];
+
+    const remoteIds=new Set(remoteVersions.map(v=>v.id));
+    const localIds=new Set(patterns.map(p=>p.id));
+
+    let patternsChanged=false;
+    // Additions or updates
+    for(const v of remoteVersions){
+      if(!localIds.has(v.id)){patternsChanged=true;break}
+      const localTs=patternMeta[v.id];
+      const remoteTs=v.updatedAt?new Date(v.updatedAt).getTime():0;
+      if(!localTs||remoteTs>localTs){patternsChanged=true;break}
+    }
+    // Removals
+    if(!patternsChanged){
+      for(const id of localIds){
+        if(!remoteIds.has(id)){patternsChanged=true;break}
+      }
+    }
+
+    // Active-assignment changes — skip while a local unsaved change is
+    // pending, same guard loadFromServer() already uses for 'active'.
+    let activeChanged=false;
+    if(!activeDirty){
+      const remotePids=remoteActive.map(a=>a.pid).sort().join(',');
+      const localPids=active.map(a=>a.pid).sort().join(',');
+      activeChanged=remotePids!==localPids;
+    }
+
+    return patternsChanged||activeChanged;
+  }catch(e){
+    console.error('Meta check error',e);
+    return false;
+  }
 }
 </script>
 </body>
