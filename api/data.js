@@ -35,6 +35,42 @@ export default async function handler(req, res) {
       return res.status(200).json({ users: rows.rows });
     }
 
+    // ── GET /api/data?meta=1 — lightweight change-detection, no pattern content ─
+    if (req.method === 'GET' && req.query.meta) {
+      const udRow = await sql`SELECT active FROM user_data WHERE user_id = ${userId}`;
+      const { active } = udRow.rows[0] || { active: [] };
+
+      let verRows;
+      if (role === 'practitioner') {
+        verRows = await sql`
+          SELECT id, updated_at
+          FROM patterns
+          WHERE created_by = ${userId}
+        `;
+      } else {
+        const userIdInt = Number(userId);
+        const userIdStr = String(userId);
+        verRows = await sql`
+          SELECT id, updated_at
+          FROM patterns
+          WHERE visibility = 'global'
+             OR visibility = 'global+private'
+             OR (
+               visibility IN ('private', 'global+private')
+               AND (
+                 assigned_users @> ${JSON.stringify([userIdInt])}::jsonb
+                 OR assigned_users @> ${JSON.stringify([userIdStr])}::jsonb
+               )
+             )
+        `;
+      }
+
+      return res.status(200).json({
+        active: active || [],
+        patternVersions: verRows.rows.map(r => ({ id: r.id, updatedAt: r.updated_at }))
+      });
+    }
+
     // ── GET /api/data ─────────────────────────────────────────────────────────
     if (req.method === 'GET') {
       await sql`
@@ -48,7 +84,7 @@ export default async function handler(req, res) {
       let patRows;
       if (role === 'practitioner') {
         patRows = await sql`
-          SELECT id, name, category, visibility, assigned_users, data
+          SELECT id, name, category, visibility, assigned_users, data, updated_at
           FROM patterns
           WHERE created_by = ${userId}
           ORDER BY created_at ASC
@@ -57,7 +93,7 @@ export default async function handler(req, res) {
         const userIdInt = Number(userId);
         const userIdStr = String(userId);
         patRows = await sql`
-          SELECT id, name, category, visibility, assigned_users, data
+          SELECT id, name, category, visibility, assigned_users, data, updated_at
           FROM patterns
           WHERE visibility = 'global'
              OR visibility = 'global+private'
@@ -79,6 +115,7 @@ export default async function handler(req, res) {
         category: Array.isArray(r.category) ? r.category : (r.category ? [r.category] : []),
         visibility: r.visibility,
         assignedUsers: r.assigned_users || [],
+        updatedAt: r.updated_at,
         ...(r.data || {})
       }));
 
