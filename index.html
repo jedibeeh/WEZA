@@ -365,6 +365,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <div class="page-title">Your work</div>
         <div class="page-sub" id="home-sub">Active patterns</div>
         <div id="home-list"></div>
+        <div id="request-section"></div>
       </div>
     </div>
 
@@ -1379,7 +1380,9 @@ function renderHome(){
   document.getElementById('home-sub').textContent=sorted.length===0?'No active patterns yet':`${sorted.length} active pattern${sorted.length!==1?'s':''}`;
   if(sorted.length===0){
     list.innerHTML=`<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="var(--sage)" width="36" height="36"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Go to Library and opt in to a pattern map to begin.</p></div>
-    <div style="height:12px"></div><button class="btn btn-primary" style="width:100%" onclick="openOptinModal()">+ Opt in to a pattern</button>`;return;
+    <div style="height:12px"></div><button class="btn btn-primary" style="width:100%" onclick="openOptinModal()">+ Opt in to a pattern</button>`;
+    renderRequestSection();
+    return;
   }
   let html='';
   sorted.forEach((ap,i)=>{
@@ -1395,6 +1398,89 @@ function renderHome(){
   });
   html+=`<div style="height:12px"></div><button class="btn btn-ghost" style="width:100%;font-size:14px" onclick="openOptinModal()">+ Opt in to a pattern</button>`;
   list.innerHTML=html;
+  renderRequestSection();
+}
+
+// ─── SESSION REQUESTS ───────────────────────────────────────────────────────
+// Any signed-in non-practitioner can ask the practitioner to build them a
+// pattern. This never generates anything itself — it just lands in the
+// practitioner's queue on the Create page. Submitting doesn't need a redraw
+// of the whole home screen, so it's wired up independently of renderHome().
+const REQUEST_STATUS_LABELS={
+  requested:'Waiting for review',
+  awaiting_review:"Practitioner is reviewing what you shared",
+  generating:'Practitioner is preparing your session',
+  draft_ready:'Practitioner is finalizing your session',
+  failed:"Something went wrong — we'll follow up"
+};
+
+function renderRequestSection(){
+  const el=document.getElementById('request-section');
+  if(!el)return;
+  if(userRole==='practitioner'){el.innerHTML='';return}
+  if(!el.dataset.built){
+    el.dataset.built='1';
+    el.innerHTML=`
+      <div class="section-label" style="margin-top:28px">Request a session</div>
+      <div class="card" style="padding:16px 18px">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+          Describe what you're experiencing and your practitioner will build a session for it.
+        </div>
+        <textarea id="req-input" placeholder="What's on your mind?"
+          style="width:100%;min-height:90px;background:var(--surface2);border:1px solid rgba(255,255,255,.08);
+          border-radius:10px;color:var(--text);font-family:var(--sans);font-size:14px;padding:11px 12px;
+          margin-bottom:10px;resize:vertical"></textarea>
+        <button class="btn btn-primary" style="width:100%" onclick="submitSessionRequest()" id="req-submit-btn">Send request</button>
+        <div id="req-error" style="color:#E05252;font-size:12px;margin-top:8px;display:none"></div>
+      </div>
+      <div id="req-list"></div>
+    `;
+  }
+  loadMyRequests();
+}
+
+async function submitSessionRequest(){
+  const input=document.getElementById('req-input');
+  const errEl=document.getElementById('req-error');
+  const btn=document.getElementById('req-submit-btn');
+  const text=input.value.trim();
+  errEl.style.display='none';
+  if(!text){errEl.textContent='Write a little about what you\'re experiencing first.';errEl.style.display='block';return}
+  btn.disabled=true;btn.textContent='Sending…';
+  try{
+    const res=await fetch('/api/requests',{method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+      body:JSON.stringify({inputText:text})});
+    if(!res.ok)throw new Error('Send failed');
+    input.value='';
+    await loadMyRequests();
+  }catch(e){
+    errEl.textContent='Could not send your request. Please try again.';
+    errEl.style.display='block';
+  }finally{
+    btn.disabled=false;btn.textContent='Send request';
+  }
+}
+
+async function loadMyRequests(){
+  const listEl=document.getElementById('req-list');
+  if(!listEl)return;
+  try{
+    const res=await fetch('/api/requests',{headers:{Authorization:'Bearer '+token}});
+    const data=await res.json();
+    const rows=data.requests||[];
+    if(rows.length===0){listEl.innerHTML='';return}
+    listEl.innerHTML=rows.map(r=>{
+      const label=REQUEST_STATUS_LABELS[r.status]||r.status;
+      const snippet=(r.input_text||'').slice(0,80)+(r.input_text.length>80?'…':'');
+      return `<div class="card" style="padding:12px 16px;margin-top:8px">
+        <div style="font-size:13px;color:var(--muted)">${snippet}</div>
+        <div style="font-size:12px;color:var(--amber);margin-top:4px">${label}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error('Failed to load requests',e);
+  }
 }
 
 // ─── LIBRARY ──────────────────────────────────────────────────────────────────
