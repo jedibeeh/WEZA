@@ -49,7 +49,7 @@ export default async function handler(req, res) {
         UPDATE prompt_templates SET
           name = ${name}, type = ${type}, role = ${role || 'main_script'},
           template_text = ${templateText},
-          provider = ${provider || 'openai'}, model = ${model || 'gpt-4.1'},
+          provider = ${provider || 'gemini'}, model = ${model || 'gemini-3.5-flash'},
           updated_at = NOW()
         WHERE id = ${id} AND created_by = ${userId}
       `;
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       }
       const result = await sql`
         INSERT INTO prompt_templates (name, type, role, template_text, provider, model, created_by)
-        VALUES (${name}, ${type}, ${role}, ${templateText}, ${provider || 'openai'}, ${model || 'gpt-4.1'}, ${userId})
+        VALUES (${name}, ${type}, ${role}, ${templateText}, ${provider || 'gemini'}, ${model || 'gemini-3.5-flash'}, ${userId})
         RETURNING id
       `;
       return res.status(201).json({ ok: true, id: result.rows[0].id });

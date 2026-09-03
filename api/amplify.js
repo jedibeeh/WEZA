@@ -10,7 +10,7 @@ import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'weza-change-this-secret-in-vercel-env';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 function getUser(req) {
   const auth = req.headers.authorization || '';
@@ -19,18 +19,21 @@ function getUser(req) {
   try { return jwt.verify(token, JWT_SECRET); } catch { return null; }
 }
 
-async function callOpenAI(model, systemPrompt, userPrompt, asJson) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+// Testing on Gemini for now — swapped in for OpenAI while there's no OpenAI
+// key configured yet. Templates still carry a `provider`/`model` column so
+// this can go back to being provider-agnostic once more than one is in use.
+async function callGemini(model, systemPrompt, userPrompt, asJson) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      ...(asJson ? { response_format: { type: 'json_object' } } : {}),
-      temperature: 0.8
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: {
+        temperature: 0.8,
+        ...(asJson ? { responseMimeType: 'application/json' } : {})
+      }
     })
   });
   if (!res.ok) {
@@ -38,7 +41,7 @@ async function callOpenAI(model, systemPrompt, userPrompt, asJson) {
     throw new Error(`AI provider request failed: ${errText.slice(0, 300)}`);
   }
   const json = await res.json();
-  return json.choices?.[0]?.message?.content || '';
+  return json.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 const AMPLIFY_SYSTEM = `You expand a short description of someone's emotional experience into
@@ -88,7 +91,7 @@ export default async function handler(req, res) {
       const template = tplRows.rows[0];
       if (!template) return res.status(404).json({ error: 'Amplify template not found' });
       const filledPrompt = template.template_text.replace('{input}', row.input_text);
-      amplifiedText = await callOpenAI(template.model || 'gpt-4.1', AMPLIFY_SYSTEM, filledPrompt, false);
+      amplifiedText = await callGemini(template.model || 'gemini-3.5-flash', AMPLIFY_SYSTEM, filledPrompt, false);
     }
 
     await sql`

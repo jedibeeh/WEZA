@@ -16,7 +16,7 @@ import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'weza-change-this-secret-in-vercel-env';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 function getUser(req) {
   const auth = req.headers.authorization || '';
@@ -25,18 +25,16 @@ function getUser(req) {
   try { return jwt.verify(token, JWT_SECRET); } catch { return null; }
 }
 
-async function callOpenAIJson(model, systemPrompt, userPrompt) {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+// Testing on Gemini for now — see the matching note in api/amplify.js.
+async function callGeminiJson(model, systemPrompt, userPrompt) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
     body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+      generationConfig: { temperature: 0.8, responseMimeType: 'application/json' }
     })
   });
   if (!res.ok) {
@@ -44,7 +42,7 @@ async function callOpenAIJson(model, systemPrompt, userPrompt) {
     throw new Error(`AI provider request failed: ${errText.slice(0, 300)}`);
   }
   const json = await res.json();
-  const raw = json.choices?.[0]?.message?.content || '';
+  const raw = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
   return JSON.parse(raw);
 }
 
@@ -72,8 +70,8 @@ export default async function handler(req, res) {
   if (!requestId || !amplifiedText || !mainScriptTemplateId || !domainPlanTemplateId) {
     return res.status(400).json({ error: 'requestId, amplifiedText, mainScriptTemplateId and domainPlanTemplateId are all required' });
   }
-  if (!OPENAI_API_KEY) {
-    return res.status(500).json({ error: 'OPENAI_API_KEY is not configured on the server' });
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' });
   }
 
   try {
@@ -94,12 +92,12 @@ export default async function handler(req, res) {
 
     // Main session script
     const mainPrompt = mainTpl.template_text.replace('{input}', amplifiedText);
-    const mainResult = await callOpenAIJson(mainTpl.model || 'gpt-4.1', MAIN_SCRIPT_SYSTEM, mainPrompt);
+    const mainResult = await callGeminiJson(mainTpl.model || 'gemini-3.5-flash', MAIN_SCRIPT_SYSTEM, mainPrompt);
     if (!mainResult?.body) throw new Error('Main script prompt did not return a body');
 
     // Domain plan
     const domainPlanPrompt = domainTpl.template_text.replace('{input}', amplifiedText);
-    const planResult = await callOpenAIJson(domainTpl.model || 'gpt-4.1', DOMAIN_PLAN_SYSTEM, domainPlanPrompt);
+    const planResult = await callGeminiJson(domainTpl.model || 'gemini-3.5-flash', DOMAIN_PLAN_SYSTEM, domainPlanPrompt);
     const domainOutlines = Array.isArray(planResult?.domains) ? planResult.domains : [];
     if (domainOutlines.length === 0) throw new Error('Domain plan prompt returned no domains');
 
@@ -108,7 +106,7 @@ export default async function handler(req, res) {
     for (const outline of domainOutlines) {
       const domainInput = `${outline.title}: ${outline.brief}`;
       const domainPromptText = mainTpl.template_text.replace('{input}', domainInput);
-      const domainResult = await callOpenAIJson(mainTpl.model || 'gpt-4.1', MAIN_SCRIPT_SYSTEM, domainPromptText);
+      const domainResult = await callGeminiJson(mainTpl.model || 'gemini-3.5-flash', MAIN_SCRIPT_SYSTEM, domainPromptText);
       domains.push({ title: outline.title, body: domainResult?.body || '' });
     }
 

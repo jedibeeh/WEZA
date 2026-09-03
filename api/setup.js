@@ -67,8 +67,8 @@ export default async function handler(req, res) {
         type TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'main_script',
         template_text TEXT NOT NULL,
-        provider TEXT NOT NULL DEFAULT 'openai',
-        model TEXT NOT NULL DEFAULT 'gpt-4.1',
+        provider TEXT NOT NULL DEFAULT 'gemini',
+        model TEXT NOT NULL DEFAULT 'gemini-3.5-flash',
         created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         updated_at TIMESTAMPTZ DEFAULT NOW()
