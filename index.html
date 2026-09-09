@@ -1338,6 +1338,12 @@ async function initApp(){
   document.getElementById('account-email').textContent=userEmail||'';
   const nameInput=document.getElementById('account-name-input');
   if(nameInput) nameInput.value=userName||'';
+
+  // Deep link from an external page (e.g. create.html's nav bar) — #home,
+  // #library or #settings on load jumps straight to that screen instead of
+  // always landing on home.
+  const target=(location.hash||'').replace('#','');
+  if(['home','library','settings'].includes(target)) showScreen(target);
 }
 
 // On load — if token exists, go straight to app

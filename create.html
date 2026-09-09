@@ -16,8 +16,19 @@
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
-.wrap{max-width:560px;margin:0 auto;padding:32px 20px 80px}
+body{background:var(--bg);color:var(--text);font-family:var(--sans)}
+#page{display:flex;flex-direction:column;height:100vh;height:-webkit-fill-available}
+#scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+nav{display:flex;justify-content:space-around;background:rgba(20,20,20,.96);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid rgba(255,255,255,.07);
+  padding:10px 0 max(14px,env(safe-area-inset-bottom));flex-shrink:0}
+nav a{background:none;border:none;color:var(--muted);display:flex;flex-direction:column;
+  align-items:center;gap:3px;font-size:10px;font-family:var(--sans);cursor:pointer;
+  text-decoration:none;transition:color .18s;padding:4px 20px}
+nav a.active{color:var(--amber)}
+nav a svg{width:22px;height:22px;stroke-width:1.6}
+.wrap{max-width:560px;margin:0 auto;padding:32px 20px 40px}
 h1{font-family:var(--serif);font-size:26px;font-weight:normal;margin-bottom:4px}
 .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
 .section-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin:28px 0 10px}
@@ -54,6 +65,8 @@ a.link{color:var(--amber);text-decoration:none}
 </head>
 <body>
 
+<div id="page">
+<div id="scroll">
 <div id="gate" class="gate" style="display:none">
   <h1 style="font-family:var(--serif);font-size:22px;font-weight:normal">Not available</h1>
   <p>This page is only available to the practitioner account.</p>
@@ -127,6 +140,23 @@ a.link{color:var(--amber);text-decoration:none}
     <p style="margin-top:10px">Saved as a draft — only visible to you until you review and publish it in <a class="link" href="/">your Library</a>.</p>
   </div>
 </div>
+</div>
+
+<nav id="page-nav" style="display:none">
+  <a href="/#home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>Home
+  </a>
+  <a href="/#library">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library
+  </a>
+  <a href="/create.html" class="active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Create
+  </a>
+  <a href="/#settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings
+  </a>
+</nav>
+</div>
 
 <script>
 const token = localStorage.getItem('weza_token');
@@ -136,6 +166,7 @@ if (!token || role !== 'practitioner') {
   document.getElementById('gate').style.display = 'block';
 } else {
   document.getElementById('main').style.display = 'block';
+  document.getElementById('page-nav').style.display = 'flex';
   init();
 }
 
