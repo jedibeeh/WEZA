@@ -105,6 +105,19 @@ export default async function handler(req, res) {
     await sql`ALTER TABLE generation_requests ADD COLUMN IF NOT EXISTS domain_plan_template_id INTEGER REFERENCES prompt_templates(id) ON DELETE SET NULL`;
     await sql`ALTER TABLE generation_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW()`;
 
+    // playback_events — one row per fresh play (not per pause/resume). pattern_name
+    // is a denormalized snapshot taken at play time so stats still read sensibly
+    // even if a pattern is later renamed or deleted.
+    await sql`
+      CREATE TABLE IF NOT EXISTS playback_events (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        pattern_id TEXT REFERENCES patterns(id) ON DELETE SET NULL,
+        pattern_name TEXT NOT NULL,
+        played_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+
     res.status(200).json({ ok: true, message: 'Tables ready' });
   } catch (err) {
     res.status(500).json({ error: err.message });
