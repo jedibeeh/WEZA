@@ -72,7 +72,15 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
   border-radius:10px;color:var(--text);font-family:var(--sans);font-size:15px;
   padding:11px 13px;margin-bottom:14px;outline:none;appearance:none;-webkit-appearance:none;transition:border-color .15s}
 .modal input:focus,.modal textarea:focus{border-color:var(--amber)}
-.modal textarea{min-height:130px;resize:none;line-height:1.65;font-family:var(--serif);font-size:14px}
+.modal textarea{min-height:130px;resize:vertical;line-height:1.65;font-family:var(--serif);font-size:14px}
+.ta-wrap{position:relative}
+.ta-wrap textarea{padding-bottom:44px}
+.ta-scroll-top{position:absolute;right:20px;bottom:12px;width:34px;height:34px;border-radius:50%;
+  background:var(--surface2);border:1px solid rgba(255,255,255,.14);color:var(--amber);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.9}
+.ta-scroll-top:active{opacity:.6}
+.ta-scroll-top svg{width:16px;height:16px}
+#pm-main{min-height:280px}
 .back-btn{background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;
   display:inline-flex;align-items:center;gap:5px;padding:18px 0 12px;font-family:var(--sans)}
 .player-hero{padding:0 0 20px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:20px}
@@ -451,6 +459,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <div class="script-body" id="script-body"></div>
         <div style="height:12px"></div>
         <button class="btn btn-ghost" id="complete-btn" style="width:100%;display:none" onclick="toggleComplete()">Mark as complete ✓</button>
+        <button class="btn btn-primary" id="next-domain-btn" style="width:100%;display:none;margin-top:8px" onclick="playNextDomain()">Next: <span id="next-domain-name"></span> →</button>
       </div>
     </div>
 
@@ -648,7 +657,12 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
       <div id="pm-student-list"></div>
     </div>
     <label>Main session script</label>
-    <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
+    <div class="ta-wrap">
+      <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
+      <button type="button" class="ta-scroll-top" title="Scroll to top" onclick="scrollTaTop('pm-main')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
     <label>Domain scripts <span style="color:var(--dim);text-transform:none;font-size:10px;letter-spacing:0">(in order)</span></label>
     <div id="domain-inputs"></div>
     <button style="background:none;border:none;color:var(--amber);font-size:14px;cursor:pointer;padding:4px 0 16px;font-family:var(--sans)" onclick="addDomainInput()">+ Add domain</button>
@@ -965,8 +979,9 @@ function showSinglePlayer(){
   pubScriptExpanded=false;
   const sw=document.getElementById('pub-script-wrap');if(sw)sw.style.display='none';
   const st=document.getElementById('pub-script-toggle');if(st)st.textContent='Show script \u2193';
-  // Pre-split and render chunks
-  const body=(p.main?.body||'').replace(/\[GUIDE\]/g,'');
+  // Pre-split and render chunks — strip any [bracketed note] the same way
+  // the main player does, since this same text also feeds on-screen display.
+  const body=(p.main?.body||'').replace(/\[[^\]]*\]/g,'');
   pubChunks=body.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
   pubChunkIdx=0;
   renderPubScript(pubChunks);
@@ -995,7 +1010,7 @@ function togglePublicPlay(){if(pubPlaying)stopPublicPlay();else startPublicPlay(
 function startPublicPlay(){
   const p=publicPattern;if(!p)return;
   if(!pubChunks.length){
-    const body=(p.main?.body||'').replace(/\[GUIDE\]/g,'');
+    const body=(p.main?.body||'').replace(/\[[^\]]*\]/g,'');
     pubChunks=body.split(/\n\n+/).map(s=>s.trim()).filter(Boolean);
     renderPubScript(pubChunks);
   }
@@ -1348,6 +1363,7 @@ async function initApp(){
   // always landing on home.
   const target=(location.hash||'').replace('#','');
   if(['home','library','settings'].includes(target)) showScreen(target);
+  else if(isPractitioner) showScreen('library');
 }
 
 // On load — if token exists, go straight to app
@@ -1714,14 +1730,32 @@ function openPlayer(pid,idx){
   const showComplete=!!ap;
   document.getElementById('complete-btn').style.display=showComplete?'block':'none';
   if(showComplete) updateCompleteBtn();
+  const hasNext=idx<pat.domains.length;
+  const nextBtn=document.getElementById('next-domain-btn');
+  nextBtn.style.display=hasNext?'block':'none';
+  if(hasNext) document.getElementById('next-domain-name').textContent=pat.domains[idx].title;
   setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
 }
 function toggleScript(){const b=document.getElementById('script-body'),t=document.getElementById('script-toggle');b.classList.toggle('visible');t.textContent=b.classList.contains('visible')?'Hide script ↑':'Show script text ↓'}
 
+function playNextDomain(){
+  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
+  if(curIdx>=pat.domains.length)return; // no next segment
+  openPlayer(curPid,curIdx+1);
+  startChunkedPlay();
+}
+
 // ─── CHUNKED TTS ──────────────────────────────────────────────────────────────
 function splitChunks(text){
+  // Strip any bracketed note/tag — e.g. [note: ...], [pause] — from what gets
+  // spoken. [GUIDE] is the one literal exception: it's a real marker handled
+  // below, not a note, so it must survive this pass untouched. The source
+  // text and on-screen script display are never touched by this — only the
+  // copy used to build speech chunks.
+  text=text.replace(/\[(?!GUIDE\])[^\]]*\]/g,'');
+
   // Split on [GUIDE] marker first
   const MARKER='[GUIDE]';
   const hasMarker=text.includes(MARKER);
@@ -2111,9 +2145,11 @@ function getSelectedCat(){
 function addDomainInput(tv='',bv=''){
   domN++;const n=domN;
   const div=document.createElement('div');div.id='db-'+n;div.className='d-add-row';
-  div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;
+  div.innerHTML=`<span class="dnum">${n}</span><div class="fields"><input type="text" placeholder="Domain name" id="dt-${n}" value="${tv.replace(/"/g,'&quot;')}"><div class="ta-wrap"><textarea id="dbody-${n}" placeholder="Script text…">${bv}</textarea><button type="button" class="ta-scroll-top" title="Scroll to top" onclick="scrollTaTop('dbody-${n}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button></div></div><button class="rm" onclick="document.getElementById('db-${n}').remove()">×</button>`;
   document.getElementById('domain-inputs').appendChild(div);
 }
+
+function scrollTaTop(id){const t=document.getElementById(id);if(t)t.scrollTop=0}
 
 async function savePattern(){
   const name=document.getElementById('pm-name').value.trim();
