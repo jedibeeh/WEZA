@@ -1419,10 +1419,13 @@ function renderHome(){
   let html='';
   sorted.forEach((ap,i)=>{
     const pat=patterns.find(p=>p.id===ap.pid);if(!pat)return;
-    const total=1+pat.domains.length,done=ap.progress,pct=Math.round(done/total*100);
+    const hasMain=!!(pat.main&&pat.main.body);
+    const total=(hasMain?1:0)+pat.domains.length,done=ap.progress,pct=Math.round(done/total*100);
     if(i<3){
       let pips='';for(let j=0;j<total;j++){if(j<done)pips+='<div class="pip done"></div>';else if(j===done)pips+='<div class="pip next"></div>';else pips+='<div class="pip"></div>';}
-      const nextLabel=done>=total?'Complete ✓':(done===0?'Main session':(pat.domains[done-1]?.title||`Domain ${done}`));
+      const nextLabel=done>=total?'Complete ✓':(hasMain
+        ?(done===0?'Main session':(pat.domains[done-1]?.title||`Domain ${done}`))
+        :(pat.domains[done]?.title||`Domain ${done+1}`));
       html+=`<div class="card" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div class="eyebrow">${done} of ${total} complete</div><div class="card-title">${pat.name}</div><div class="pips">${pips}</div><div class="card-meta" style="margin-top:8px">Next: <span style="color:var(--amber)">${nextLabel}</span></div></div></div>`;
     }else{
       html+=`<div class="card card-compact" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div style="flex:1"><div class="card-title">${pat.name}</div><div class="cbar-wrap"><div class="cbar" style="width:${pct}%"></div></div></div><div style="font-size:11px;color:var(--muted);white-space:nowrap">${done}/${total}</div></div></div>`;
@@ -1655,7 +1658,8 @@ let mapFromScreen='home'; // track where we came from
 function openMapScreen(pid, from){
   curPid=pid; mapFromScreen=from||prevScreen;
   const pat=patterns.find(p=>p.id===pid);if(!pat)return;
-  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0,total=1+pat.domains.length;
+  const hasMain=!!(pat.main&&pat.main.body);
+  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0,total=(hasMain?1:0)+pat.domains.length;
   const catIds=Array.isArray(pat.category)?pat.category:(pat.category?[pat.category]:[]);
   const catNames=catIds.map(id=>{const w=WHEEL.find(w=>w.id===id);return w?w.name:null}).filter(Boolean);
   const isPractitioner=userRole==='practitioner';
@@ -1668,9 +1672,18 @@ function openMapScreen(pid, from){
     ${catNames.map(n=>`<span class="cat-tag">${n}</span>`).join('')}
     <span class="pill">${done} of ${total} complete</span>
     ${!ap?`<button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="optInMap('${pid}')">Opt in</button>`:''}
-  </div><div class="section-label">Main session</div>`;
-  html+=drow('M',pat.main.title,pid,0,done>0,done===0);
-  if(pat.domains.length>0){html+='<div class="section-label">Domains</div>';pat.domains.forEach((d,i)=>{html+=drow(i+1,d.title,pid,i+1,done>i+1,done===i+1)});}
+  </div>`;
+  if(hasMain){
+    html+=`<div class="section-label">Main session</div>`;
+    html+=drow('M',pat.main.title,pid,0,done>0,done===0);
+  }
+  if(pat.domains.length>0){
+    html+='<div class="section-label">Domains</div>';
+    pat.domains.forEach((d,i)=>{
+      const idx=hasMain?i+1:i; // idx scheme shifts down by one when there's no main slot
+      html+=drow(i+1,d.title,pid,idx,done>idx,done===idx);
+    });
+  }
   // Buttons depend on role + whether opted in + where we came from
   const btns=[];
   if(isPractitioner && fromLibrary) btns.push(`<button class="btn btn-ghost" onclick="openEditModal('${pid}')">Edit</button>`);
@@ -1703,20 +1716,24 @@ function openPlayer(pid,idx){
   const pat=patterns.find(p=>p.id===pid);
   if(!pat){console.error('Pattern not found:',pid);return}
   stopAll();
-  const scr=idx===0?pat.main:pat.domains[idx-1];
+  const hasMain=!!(pat.main&&pat.main.body);
+  const scr=hasMain?(idx===0?pat.main:pat.domains[idx-1]):pat.domains[idx];
   if(!scr||!scr.body){
     // Script missing — likely data not loaded yet, trigger a reload
     setSyncState('syncing');
     loadFromServer().then(()=>{
       const pat2=patterns.find(p=>p.id===pid);
-      const scr2=idx===0?pat2?.main:pat2?.domains[idx-1];
+      const hasMain2=!!(pat2?.main&&pat2.main.body);
+      const scr2=hasMain2?(idx===0?pat2?.main:pat2?.domains[idx-1]):pat2?.domains[idx];
       if(scr2?.body) openPlayer(pid,idx);
       else alert('Session script not available. Please try again.');
     });
     return;
   }
   const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0;
-  document.getElementById('p-eyebrow').textContent=idx===0?'Main session':`Domain ${idx} · ${pat.name}`;
+  document.getElementById('p-eyebrow').textContent=hasMain
+    ?(idx===0?'Main session':`Domain ${idx} · ${pat.name}`)
+    :`Domain ${idx+1} · ${pat.name}`;
   document.getElementById('p-title').textContent=scr.title;
   const wc=scr.body.split(/\s+/).length;
   document.getElementById('p-meta').textContent=`~${Math.ceil(wc/130)} min · ${wc} words`;
@@ -1730,10 +1747,11 @@ function openPlayer(pid,idx){
   const showComplete=!!ap;
   document.getElementById('complete-btn').style.display=showComplete?'block':'none';
   if(showComplete) updateCompleteBtn();
-  const hasNext=idx<pat.domains.length;
+  const maxIdx=hasMain?pat.domains.length:pat.domains.length-1;
+  const hasNext=idx<maxIdx;
   const nextBtn=document.getElementById('next-domain-btn');
   nextBtn.style.display=hasNext?'block':'none';
-  if(hasNext) document.getElementById('next-domain-name').textContent=pat.domains[idx].title;
+  if(hasNext) document.getElementById('next-domain-name').textContent=pat.domains[hasMain?idx:idx+1].title;
   setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
@@ -1742,7 +1760,9 @@ function toggleScript(){const b=document.getElementById('script-body'),t=documen
 
 function playNextDomain(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
-  if(curIdx>=pat.domains.length)return; // no next segment
+  const hasMain=!!(pat.main&&pat.main.body);
+  const maxIdx=hasMain?pat.domains.length:pat.domains.length-1;
+  if(curIdx>=maxIdx)return; // no next segment
   openPlayer(curPid,curIdx+1);
   startChunkedPlay();
 }
@@ -1956,7 +1976,7 @@ function updateCompleteBtn(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const btn=document.getElementById('complete-btn');if(!btn)return;
-  const total=1+pat.domains.length;
+  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
   const isComplete=curIdx<ap.progress; // this script is already marked done
   btn.style.display='block';
   if(isComplete){
@@ -1973,7 +1993,7 @@ function updateCompleteBtn(){
 function toggleComplete(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
-  const total=1+pat.domains.length;
+  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
   const isComplete=curIdx<ap.progress;
   if(isComplete){
     // Undo: step progress back to this script
@@ -1993,7 +2013,7 @@ function toggleComplete(){
 function autoComplete(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
-  const total=1+pat.domains.length;
+  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
   if(curIdx===ap.progress&&ap.progress<total){
     ap.progress++;ap.lastAt=Date.now();
     activeDirty=true;
@@ -2156,12 +2176,8 @@ async function savePattern(){
   const mainBody=document.getElementById('pm-main').value.trim();
   const description=document.getElementById('pm-desc').value.trim().slice(0,1500);
   const category=getSelectedCat(); // now returns array or null
-  // Validate mandatory fields
-  if(!name){alert('Please enter a pattern name.');return}
-  if(!description){alert('Please enter a description — this helps people understand what the pattern addresses.');return}
-  if(!category||category.length===0){alert('Please select at least one category from the Wheel of Life.');return}
-  if(!mainBody){alert('Please enter the main session script.');return}
-  // Collect domain scripts
+  // Collect domain scripts (needed before validation now — a pattern can be
+  // domains-only, e.g. a playlist-style client work, with no main script)
   const doms=[];
   document.querySelectorAll('[id^="db-"]').forEach(b=>{
     const n=b.id.replace('db-','');
@@ -2169,6 +2185,11 @@ async function savePattern(){
     const bv=document.getElementById('dbody-'+n)?.value.trim();
     if(t&&bv)doms.push({title:t,body:bv});
   });
+  // Validate mandatory fields
+  if(!name){alert('Please enter a pattern name.');return}
+  if(!description){alert('Please enter a description — this helps people understand what the pattern addresses.');return}
+  if(!category||category.length===0){alert('Please select at least one category from the Wheel of Life.');return}
+  if(!mainBody && doms.length===0){alert('Please enter either a main session script or at least one domain script.');return}
   const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
   // Derive visibility — a pattern can be both global AND assigned
   const visibility=deriveVisibility(isGlobal,isOutreach,assignedUsers);
@@ -2177,7 +2198,7 @@ async function savePattern(){
     id:pid, name, description,
     category, visibility, assignedUsers,
     showOnLanding: isShowOnLanding,
-    main:{title:name+' — Main',body:mainBody},
+    main:mainBody?{title:name+' — Main',body:mainBody}:null,
     domains:doms,
     createdAt:editPid?(patterns.find(p=>p.id===editPid)?.createdAt||Date.now()):Date.now()
   };
