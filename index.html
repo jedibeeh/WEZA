@@ -56,6 +56,7 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .btn:active{opacity:.75}
 .btn-primary{background:var(--amber);color:#141414;font-weight:600}
 .btn-ghost{background:var(--surface2);color:var(--text)}
+.btn-nav-half{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-danger{background:rgba(224,82,82,.13);color:var(--red);border:1px solid rgba(224,82,82,.2)}
 .btn-row{display:flex;gap:8px}.btn-row .btn{flex:1}
 .pill{display:inline-flex;align-items:center;background:var(--a-soft);color:var(--amber);
@@ -459,7 +460,10 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <div class="script-body" id="script-body"></div>
         <div style="height:12px"></div>
         <button class="btn btn-ghost" id="complete-btn" style="width:100%;display:none" onclick="toggleComplete()">Mark as complete ✓</button>
-        <button class="btn btn-primary" id="next-domain-btn" style="width:100%;display:none;margin-top:8px" onclick="playNextDomain()">Next: <span id="next-domain-name"></span> →</button>
+        <div id="domain-nav-row" style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-ghost btn-nav-half" id="prev-domain-btn" style="flex:1;display:none" onclick="playPrevDomain()">← <span id="prev-domain-name"></span></button>
+          <button class="btn btn-primary btn-nav-half" id="next-domain-btn" style="flex:1;display:none" onclick="playNextDomain()"><span id="next-domain-name"></span> →</button>
+        </div>
       </div>
     </div>
 
@@ -1125,6 +1129,9 @@ function stopSilentAudio(){
 
 // ─── LISTENING TIME TRACKER ───────────────────────────────────────────────────
 let listenStart=null; // timestamp when current chunk started
+let sessionListenedSecs=0, playbackLogged=false; // per-segment-view, reset in openPlayer()
+
+const PLAYBACK_LOG_THRESHOLD_SECS=300; // 5 minutes of real listened time — not just a tap
 
 function trackingStart(){listenStart=Date.now()}
 function trackingStop(){
@@ -1143,6 +1150,17 @@ function trackingStop(){
   localUpdatedAt=Date.now();
   clearTimeout(saveTimer);
   saveToServer();
+
+  // Only log a play once real listened time on THIS segment crosses the
+  // threshold — a tap that's abandoned after a few seconds should never
+  // show up in Insights. Accumulates across pause/resume within one segment
+  // view; resets whenever openPlayer() opens a (new) segment.
+  sessionListenedSecs+=secs;
+  if(!playbackLogged && sessionListenedSecs>=PLAYBACK_LOG_THRESHOLD_SECS){
+    playbackLogged=true;
+    const pat=patterns.find(p=>p.id===curPid);
+    if(pat) logPlayback(pat.id,pat.name);
+  }
 }
 function getListenStats(){
   const stats=cfg.stats||{};
@@ -1713,6 +1731,7 @@ function delPattern(pid){if(!confirm('Delete this pattern permanently? This cann
 // ─── PLAYER ───────────────────────────────────────────────────────────────────
 function openPlayer(pid,idx){
   curPid=pid;curIdx=idx;
+  sessionListenedSecs=0;playbackLogged=false; // fresh segment view — new 5-minute window
   const pat=patterns.find(p=>p.id===pid);
   if(!pat){console.error('Pattern not found:',pid);return}
   stopAll();
@@ -1749,9 +1768,18 @@ function openPlayer(pid,idx){
   if(showComplete) updateCompleteBtn();
   const maxIdx=hasMain?pat.domains.length:pat.domains.length-1;
   const hasNext=idx<maxIdx;
+  const hasPrev=idx>0;
+  document.getElementById('domain-nav-row').style.display=(hasNext||hasPrev)?'flex':'none';
   const nextBtn=document.getElementById('next-domain-btn');
   nextBtn.style.display=hasNext?'block':'none';
   if(hasNext) document.getElementById('next-domain-name').textContent=pat.domains[hasMain?idx:idx+1].title;
+  const prevBtn=document.getElementById('prev-domain-btn');
+  prevBtn.style.display=hasPrev?'block':'none';
+  if(hasPrev){
+    const prevIdx=idx-1;
+    const prevTitle=hasMain?(prevIdx===0?pat.main.title:pat.domains[prevIdx-1].title):pat.domains[prevIdx].title;
+    document.getElementById('prev-domain-name').textContent=prevTitle;
+  }
   setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
@@ -1764,6 +1792,12 @@ function playNextDomain(){
   const maxIdx=hasMain?pat.domains.length:pat.domains.length-1;
   if(curIdx>=maxIdx)return; // no next segment
   openPlayer(curPid,curIdx+1);
+  startChunkedPlay();
+}
+
+function playPrevDomain(){
+  if(curIdx<=0)return; // already at the first segment
+  openPlayer(curPid,curIdx-1);
   startChunkedPlay();
 }
 
@@ -1829,13 +1863,13 @@ function togglePlay(){
 
 function startChunkedPlay(){
   const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
-  const scr=curIdx===0?pat.main:pat.domains[curIdx-1];if(!scr)return;
+  const hasMain=!!(pat.main&&pat.main.body);
+  const scr=hasMain?(curIdx===0?pat.main:pat.domains[curIdx-1]):pat.domains[curIdx];if(!scr)return;
   if(!('speechSynthesis' in window)){document.getElementById('tts-status').textContent='TTS not available.';return}
   chunks=splitChunks(scr.body);chunkIdx=0;
   playing=true;setPlayIcon(true);
   document.getElementById('tts-status').textContent='Playing…';
   acquireWake();setupMediaSession();startSilentAudio();trackingStart();speakChunk();
-  logPlayback(pat.id,pat.name);
 }
 
 // Fire-and-forget — never blocks or delays playback starting, and a failed
@@ -1954,7 +1988,8 @@ function setPlayIcon(p){document.getElementById('play-icon').innerHTML=p?'<rect 
 function setupMediaSession(){
   if(!('mediaSession' in navigator))return;
   const pat=patterns.find(p=>p.id===curPid);
-  const scr=pat?(curIdx===0?pat.main:pat.domains[curIdx-1]):null;
+  const hasMain=!!(pat?.main&&pat.main.body);
+  const scr=pat?(hasMain?(curIdx===0?pat.main:pat.domains[curIdx-1]):pat.domains[curIdx]):null;
   navigator.mediaSession.metadata=new MediaMetadata({
     title: scr?.title||'WEZA Session',
     artist: pat?.name||'WEZA',
