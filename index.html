@@ -56,7 +56,6 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .btn:active{opacity:.75}
 .btn-primary{background:var(--amber);color:#141414;font-weight:600}
 .btn-ghost{background:var(--surface2);color:var(--text)}
-.btn-nav-half{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .btn-danger{background:rgba(224,82,82,.13);color:var(--red);border:1px solid rgba(224,82,82,.2)}
 .btn-row{display:flex;gap:8px}.btn-row .btn{flex:1}
 .pill{display:inline-flex;align-items:center;background:var(--a-soft);color:var(--amber);
@@ -461,8 +460,8 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
         <div style="height:12px"></div>
         <button class="btn btn-ghost" id="complete-btn" style="width:100%;display:none" onclick="toggleComplete()">Mark as complete ✓</button>
         <div id="domain-nav-row" style="display:flex;gap:8px;margin-top:8px">
-          <button class="btn btn-ghost btn-nav-half" id="prev-domain-btn" style="flex:1;display:none" onclick="playPrevDomain()">← <span id="prev-domain-name"></span></button>
-          <button class="btn btn-primary btn-nav-half" id="next-domain-btn" style="flex:1;display:none" onclick="playNextDomain()"><span id="next-domain-name"></span> →</button>
+          <button class="btn btn-ghost" id="prev-domain-btn" style="flex:1;display:none" onclick="playPrevDomain()">← Previous</button>
+          <button class="btn btn-primary" id="next-domain-btn" style="flex:1;display:none" onclick="playNextDomain()">Next →</button>
         </div>
       </div>
     </div>
@@ -1770,16 +1769,8 @@ function openPlayer(pid,idx){
   const hasNext=idx<maxIdx;
   const hasPrev=idx>0;
   document.getElementById('domain-nav-row').style.display=(hasNext||hasPrev)?'flex':'none';
-  const nextBtn=document.getElementById('next-domain-btn');
-  nextBtn.style.display=hasNext?'block':'none';
-  if(hasNext) document.getElementById('next-domain-name').textContent=pat.domains[hasMain?idx:idx+1].title;
-  const prevBtn=document.getElementById('prev-domain-btn');
-  prevBtn.style.display=hasPrev?'block':'none';
-  if(hasPrev){
-    const prevIdx=idx-1;
-    const prevTitle=hasMain?(prevIdx===0?pat.main.title:pat.domains[prevIdx-1].title):pat.domains[prevIdx].title;
-    document.getElementById('prev-domain-name').textContent=prevTitle;
-  }
+  document.getElementById('next-domain-btn').style.display=hasNext?'block':'none';
+  document.getElementById('prev-domain-btn').style.display=hasPrev?'block':'none';
   setPlayIcon(false);playRate=cfg.speed||1;
   document.querySelectorAll('.spd').forEach(b=>b.classList.toggle('active',parseFloat(b.textContent)===playRate));
   showScreen('player');
