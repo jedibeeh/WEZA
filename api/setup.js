@@ -118,6 +118,23 @@ export default async function handler(req, res) {
       )
     `;
 
+    // leads — cold-traffic submissions from the public /start.html funnel.
+    // Deliberately separate from generation_requests: these people have no
+    // user_id yet (no account exists), so they can't share that table's
+    // requested_by/target_client_id shape. status is 'new' until the
+    // practitioner has manually followed up, then 'contacted'.
+    await sql`
+      CREATE TABLE IF NOT EXISTS leads (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        situation TEXT NOT NULL,
+        tried TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+
     res.status(200).json({ ok: true, message: 'Tables ready' });
   } catch (err) {
     res.status(500).json({ error: err.message });
