@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#141414">
+<title>WEZA — Send me your situation</title>
+<style>
+:root {
+  --bg:#141414;--surface:#1E1E1E;--surface2:#282828;
+  --text:#F0EDE6;--muted:#888;--dim:#444;
+  --sage:#7A9E8A;--amber:#C8975A;
+  --a-soft:rgba(200,151,90,.12);--a-border:rgba(200,151,90,.28);
+  --red:#E05252;--radius:14px;
+  --serif:Georgia,'Times New Roman',serif;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+.wrap{max-width:520px;margin:0 auto;padding:48px 20px 60px}
+.offer{font-family:var(--serif);font-size:19px;line-height:1.55;margin-bottom:36px}
+.offer strong{color:var(--amber);font-weight:normal}
+label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;margin-top:18px}
+label:first-of-type{margin-top:0}
+input[type=text],input[type=email],textarea{
+  width:100%;background:var(--surface);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;color:var(--text);font-family:var(--sans);font-size:15px;
+  padding:12px 14px;outline:none;transition:border-color .15s}
+input:focus,textarea:focus{border-color:var(--amber)}
+textarea{min-height:130px;resize:vertical;line-height:1.55;font-family:var(--serif);font-size:15px}
+.hp{position:absolute;left:-9999px;top:-9999px;opacity:0}
+.btn{border:none;border-radius:10px;padding:15px 20px;font-size:16px;font-family:var(--sans);
+  cursor:pointer;width:100%;margin-top:28px}
+.btn-primary{background:var(--amber);color:#141414;font-weight:600}
+.btn[disabled]{opacity:.5;cursor:default}
+.expect{font-size:13px;color:var(--muted);text-align:center;margin-top:14px;line-height:1.5}
+.error{color:var(--red);font-size:13px;margin-top:10px;display:none}
+.done{display:none;text-align:center;padding:60px 0}
+.done h1{font-family:var(--serif);font-size:24px;font-weight:normal;margin-bottom:12px}
+.done p{color:var(--muted);font-size:14px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="form-view">
+  <div class="offer">
+    Send me the first situation you want to shift. I'll build you a personalized audio practice — <strong>free</strong>. If you want to keep going, you'll get <strong>7 days of free support</strong>.
+  </div>
+
+  <form id="lead-form">
+    <label for="lf-name">Name</label>
+    <input type="text" id="lf-name" required>
+
+    <label for="lf-email">Email</label>
+    <input type="email" id="lf-email" required>
+
+    <label for="lf-situation">Describe the first situation you want to shift.</label>
+    <textarea id="lf-situation" required placeholder="Take your time — the more specific, the more useful your first practice will be."></textarea>
+
+    <label for="lf-tried">What have you already tried to resolve this? <span style="color:var(--dim)">(optional)</span></label>
+    <textarea id="lf-tried" style="min-height:90px"></textarea>
+
+    <input type="text" id="lf-website" name="website" class="hp" tabindex="-1" autocomplete="off">
+
+    <button type="submit" class="btn btn-primary" id="lf-submit">Send my situation</button>
+    <div class="expect">Your first practice will be ready within 48 hours.</div>
+    <div class="error" id="lf-error"></div>
+  </form>
+</div>
+
+<div class="wrap done" id="done-view">
+  <h1>Got it.</h1>
+  <p>Your first practice will be ready within 48 hours. I'll reach out to the email you gave me — <span id="done-email"></span>.</p>
+</div>
+
+<script>
+document.getElementById('lead-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const name=document.getElementById('lf-name').value.trim();
+  const email=document.getElementById('lf-email').value.trim();
+  const situation=document.getElementById('lf-situation').value.trim();
+  const tried=document.getElementById('lf-tried').value.trim();
+  const website=document.getElementById('lf-website').value;
+  const errEl=document.getElementById('lf-error');
+  errEl.style.display='none';
+
+  const btn=document.getElementById('lf-submit');
+  btn.disabled=true;btn.textContent='Sending…';
+  try{
+    const res=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name,email,situation,tried,website})});
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error||'Something went wrong');
+
+    document.getElementById('done-email').textContent=email;
+    document.getElementById('form-view').style.display='none';
+    document.getElementById('done-view').style.display='block';
+  }catch(err){
+    errEl.textContent=err.message||'Something went wrong. Please try again.';
+    errEl.style.display='block';
+    btn.disabled=false;btn.textContent='Send my situation';
+  }
+});
+</script>
+</body>
+</html>

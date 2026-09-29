@@ -55,6 +55,9 @@ a.link{color:var(--amber);text-decoration:none}
 .queue-row .who{font-size:13px;font-weight:600}
 .queue-row .snippet{font-size:13px;color:var(--muted);margin:4px 0 8px;line-height:1.4}
 .queue-row button{background:var(--surface2);border:none;border-radius:8px;color:var(--amber);font-size:12px;padding:7px 12px;cursor:pointer}
+.queue-row .tried{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.4;font-style:italic}
+.queue-row .badge{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--sage);margin-left:8px}
+.queue-row .actions{display:flex;gap:8px}
 .queue-empty{font-size:13px;color:var(--muted)}
 .tpl-list-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
 .tpl-list-row:last-child{border-bottom:none}
@@ -77,6 +80,11 @@ a.link{color:var(--amber);text-decoration:none}
 <div id="main" class="wrap" style="display:none">
   <h1>Create pattern</h1>
   <div class="sub">Generate a new pattern from a client's described experience.</div>
+
+  <div class="section-label">New leads (from Substack)</div>
+  <div class="card" id="leads-card">
+    <div id="leads-list" class="queue-empty">Loading…</div>
+  </div>
 
   <div class="section-label">Requests waiting</div>
   <div class="card" id="queue-card">
@@ -177,8 +185,12 @@ if (!token || role !== 'practitioner') {
 let templates = [];
 let currentRequestId = null;
 
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function init(){
-  await Promise.all([loadTemplates(), loadClients(), loadQueue()]);
+  await Promise.all([loadTemplates(), loadClients(), loadQueue(), loadLeads()]);
 }
 
 function apiHeaders(json){
@@ -226,6 +238,48 @@ async function loadClients(){
     });
   }catch(e){
     console.error('Failed to load clients', e);
+  }
+}
+
+async function loadLeads(){
+  try{
+    const res = await fetch('/api/leads', { headers: apiHeaders() });
+    const data = await res.json();
+    const leads = data.leads || [];
+    const list = document.getElementById('leads-list');
+    if (leads.length === 0) {
+      list.innerHTML = '<div class="queue-empty">No leads yet.</div>';
+      return;
+    }
+    list.innerHTML = leads.map(l => `
+      <div class="queue-row">
+        <div class="who">${escapeHtml(l.name)} <span style="color:var(--muted);font-weight:400">· ${escapeHtml(l.email)}</span>${l.status==='new'?'<span class="badge">New</span>':''}</div>
+        <div class="snippet">${escapeHtml((l.situation||'').slice(0,180))}${l.situation.length>180?'…':''}</div>
+        ${l.tried ? `<div class="tried">Tried: ${escapeHtml(l.tried.slice(0,140))}${l.tried.length>140?'…':''}</div>` : ''}
+        <div class="actions">
+          <button onclick="pickUpLead(${JSON.stringify(l.situation).replace(/"/g,'&quot;')})">Pick up</button>
+          ${l.status==='new' ? `<button onclick="markContacted(${l.id})">Mark contacted</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }catch(e){
+    console.error('Failed to load leads', e);
+  }
+}
+
+function pickUpLead(situation){
+  currentRequestId = null; // leads have no account yet — always a fresh, unassigned draft
+  document.getElementById('input-text').value = situation;
+  document.getElementById('client-select').value = '';
+  document.getElementById('phase1').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function markContacted(id){
+  try{
+    await fetch('/api/leads?action=contacted', { method:'POST', headers: apiHeaders(true), body: JSON.stringify({ id }) });
+    loadLeads();
+  }catch(e){
+    console.error('Failed to mark contacted', e);
   }
 }
 
