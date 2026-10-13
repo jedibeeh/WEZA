@@ -90,7 +90,7 @@ export default async function handler(req, res) {
 
     await sql`UPDATE generation_requests SET status='generating', amplified_text=${amplifiedText}, main_script_template_id=${mainScriptTemplateId}, domain_plan_template_id=${domainPlanTemplateId}, updated_at=NOW() WHERE id=${requestId}`;
 
-    // Main session script
+    // Deep Practice script (stored as pattern.main)
     const mainPrompt = mainTpl.template_text.replace('{input}', amplifiedText);
     const mainResult = await callGeminiJson(mainTpl.model || 'gemini-3.5-flash', MAIN_SCRIPT_SYSTEM, mainPrompt);
     if (!mainResult?.body) throw new Error('Main script prompt did not return a body');
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
 
     const patternId = 'p' + Date.now();
     const dataJson = JSON.stringify({
-      main: { title: mainResult.title || 'Main session', body: mainResult.body },
+      main: { title: mainResult.title || 'Deep Practice', body: mainResult.body },
       domains,
       createdAt: Date.now(),
       description: '',
