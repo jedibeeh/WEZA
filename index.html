@@ -1437,12 +1437,13 @@ function renderHome(){
   sorted.forEach((ap,i)=>{
     const pat=patterns.find(p=>p.id===ap.pid);if(!pat)return;
     const hasMain=!!(pat.main&&pat.main.body);
-    const total=(hasMain?1:0)+pat.domains.length,done=ap.progress,pct=Math.round(done/total*100);
+    const total=(hasMain?1:0)+pat.domains.length;
+    const completed=getCompleted(ap);
+    const done=completed.length,pct=Math.round(done/total*100);
+    const nextIdx=nextSegIdx(total,completed);
     if(i<3){
-      let pips='';for(let j=0;j<total;j++){if(j<done)pips+='<div class="pip done"></div>';else if(j===done)pips+='<div class="pip next"></div>';else pips+='<div class="pip"></div>';}
-      const nextLabel=done>=total?'Complete ✓':(hasMain
-        ?(done===0?'Main session':(pat.domains[done-1]?.title||`Domain ${done}`))
-        :(pat.domains[done]?.title||`Domain ${done+1}`));
+      let pips='';for(let j=0;j<total;j++){if(completed.includes(j))pips+='<div class="pip done"></div>';else if(j===nextIdx)pips+='<div class="pip next"></div>';else pips+='<div class="pip"></div>';}
+      const nextLabel=nextIdx>=total?'Complete ✓':segLabel(pat,hasMain,nextIdx);
       html+=`<div class="card" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div class="eyebrow">${done} of ${total} complete</div><div class="card-title">${pat.name}</div><div class="pips">${pips}</div><div class="card-meta" style="margin-top:8px">Next: <span style="color:var(--amber)">${nextLabel}</span></div></div></div>`;
     }else{
       html+=`<div class="card card-compact" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div style="flex:1"><div class="card-title">${pat.name}</div><div class="cbar-wrap"><div class="cbar" style="width:${pct}%"></div></div></div><div style="font-size:11px;color:var(--muted);white-space:nowrap">${done}/${total}</div></div></div>`;
@@ -1637,7 +1638,8 @@ function setLibClientFilter(id){libClientFilter=id;renderLibrary()}
 
 function patCard(p){
   const ap=active.find(a=>a.pid===p.id);
-  const total=1+(p.domains?.length||0),done=ap?ap.progress:0;
+  const hasMainP=!!(p.main&&p.main.body);
+  const total=(hasMainP?1:0)+(p.domains?.length||0),done=ap?getCompleted(ap).length:0;
   // category can be array or single int
   const catIds=Array.isArray(p.category)?p.category:(p.category?[p.category]:[]);
   const catNames=catIds.map(id=>{const w=WHEEL.find(w=>w.id===id);return w?w.name:null}).filter(Boolean);
@@ -1676,7 +1678,11 @@ function openMapScreen(pid, from){
   curPid=pid; mapFromScreen=from||prevScreen;
   const pat=patterns.find(p=>p.id===pid);if(!pat)return;
   const hasMain=!!(pat.main&&pat.main.body);
-  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0,total=(hasMain?1:0)+pat.domains.length;
+  const ap=active.find(a=>a.pid===pid);
+  const total=(hasMain?1:0)+pat.domains.length;
+  const completed=ap?getCompleted(ap):[];
+  const done=completed.length;
+  const nextIdx=nextSegIdx(total,completed);
   const catIds=Array.isArray(pat.category)?pat.category:(pat.category?[pat.category]:[]);
   const catNames=catIds.map(id=>{const w=WHEEL.find(w=>w.id===id);return w?w.name:null}).filter(Boolean);
   const isPractitioner=userRole==='practitioner';
@@ -1692,13 +1698,13 @@ function openMapScreen(pid, from){
   </div>`;
   if(hasMain){
     html+=`<div class="section-label">Main session</div>`;
-    html+=drow('M',pat.main.title,pid,0,done>0,done===0);
+    html+=drow('M',pat.main.title,pid,0,completed.includes(0),nextIdx===0);
   }
   if(pat.domains.length>0){
     html+='<div class="section-label">Domains</div>';
     pat.domains.forEach((d,i)=>{
       const idx=hasMain?i+1:i; // idx scheme shifts down by one when there's no main slot
-      html+=drow(i+1,d.title,pid,idx,done>idx,done===idx);
+      html+=drow(i+1,d.title,pid,idx,completed.includes(idx),nextIdx===idx);
     });
   }
   // Buttons depend on role + whether opted in + where we came from
@@ -1720,10 +1726,38 @@ function openMapScreen(pid, from){
   document.getElementById('map-content').innerHTML=html;
   showScreen('map');
 }
+// ─── COMPLETION TRACKING (order-independent) ───────────────────────────────────
+// ap.completed is the set of segment indices actually marked done — order of
+// completion doesn't matter. Legacy entries only ever had a linear ap.progress
+// counter (since old code could only complete sequentially); getCompleted()
+// synthesizes an equivalent completed-set from that on first read, so nothing
+// already in progress gets reset by this change.
+function getCompleted(ap){
+  if(Array.isArray(ap.completed))return ap.completed;
+  return Array.from({length:ap.progress||0},(_,i)=>i);
+}
+// "Next" = the first not-yet-done segment, searching forward from wherever the
+// user most recently completed something (wrapping around). This is what lets
+// progress continue past an incomplete Main instead of getting stuck on it.
+function nextSegIdx(total,completed){
+  if(completed.length>=total)return total; // fully complete
+  const last=completed.length?completed[completed.length-1]:-1;
+  for(let step=1;step<=total;step++){
+    const idx=(last+step)%total;
+    if(!completed.includes(idx))return idx;
+  }
+  return total;
+}
+function segLabel(pat,hasMain,idx){
+  if(hasMain&&idx===0)return pat.main.title||'Main session';
+  const dIdx=hasMain?idx-1:idx;
+  return pat.domains[dIdx]?.title||`Domain ${dIdx+1}`;
+}
+
 function drow(lbl,title,pid,idx,isDone,isNext){
   return `<div class="drow${isNext?' is-next':''}${isDone?' is-done':''}" onclick="openPlayer('${pid}',${idx})"><div class="drow-idx">${lbl}</div><div class="drow-name">${title}</div><div class="dcheck${isDone?' done':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg></div></div>`;
 }
-function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,lastAt:Date.now()});persist(true);openMapScreen(pid,'map')}
+function optInMap(pid){if(!active.find(a=>a.pid===pid))active.push({pid,progress:0,completed:[],lastAt:Date.now()});persist(true);openMapScreen(pid,'map')}
 function optOutMap(pid){if(!confirm('Drop this pattern from your active work? Your progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);persist(true);showScreen(prevScreen==='home'?'home':'library')}
 function delPattern(pid){if(!confirm('Delete this pattern permanently? This cannot be undone.'))return;patterns=patterns.filter(p=>p.id!==pid);active=active.filter(a=>a.pid!==pid);persist(true);showScreen('library')}
 
@@ -1748,7 +1782,7 @@ function openPlayer(pid,idx){
     });
     return;
   }
-  const ap=active.find(a=>a.pid===pid);const done=ap?ap.progress:0;
+  const ap=active.find(a=>a.pid===pid);const segCompleted=ap?getCompleted(ap).includes(idx):false;
   document.getElementById('p-eyebrow').textContent=hasMain
     ?(idx===0?'Main session':`Domain ${idx} · ${pat.name}`)
     :`Domain ${idx+1} · ${pat.name}`;
@@ -1758,7 +1792,7 @@ function openPlayer(pid,idx){
   document.getElementById('script-body').textContent=scr.body;
   document.getElementById('script-body').classList.remove('visible');
   document.getElementById('script-toggle').textContent='Show script text ↓';
-  document.getElementById('tts-status').textContent=idx<done?'Already complete — tap to revisit':'Tap play to listen';
+  document.getElementById('tts-status').textContent=segCompleted?'Already complete — tap to revisit':'Tap play to listen';
   updateScrubber(false);
   document.getElementById('chunk-info').textContent='';
   document.getElementById('player-back-label').textContent=pat.name.length>24?pat.name.slice(0,24)+'…':pat.name;
@@ -1999,11 +2033,9 @@ function teardownMediaSession(){
 
 // ─── PROGRESS ─────────────────────────────────────────────────────────────────
 function updateCompleteBtn(){
-  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
   const btn=document.getElementById('complete-btn');if(!btn)return;
-  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
-  const isComplete=curIdx<ap.progress; // this script is already marked done
+  const isComplete=getCompleted(ap).includes(curIdx);
   btn.style.display='block';
   if(isComplete){
     btn.textContent='✓ Complete — tap to undo';
@@ -2016,40 +2048,46 @@ function updateCompleteBtn(){
   }
 }
 
+// Marks (or unmarks) exactly the segment at idx — independent of every other
+// segment's state. Order of completion never matters: doing domain 3 before
+// Main, or before domain 1, works exactly the same as doing them in order.
+function setSegComplete(ap,idx,isDone){
+  const completed=getCompleted(ap);
+  const i=completed.indexOf(idx);
+  if(isDone && i===-1)completed.push(idx);
+  if(!isDone && i!==-1)completed.splice(i,1);
+  ap.completed=completed;
+  ap.progress=completed.length; // kept in sync for any legacy display reads
+  ap.lastAt=Date.now();
+}
+
 function toggleComplete(){
-  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
-  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
-  const isComplete=curIdx<ap.progress;
+  const isComplete=getCompleted(ap).includes(curIdx);
   if(isComplete){
-    // Undo: step progress back to this script
     if(!confirm('Mark this session as not complete?'))return;
-    ap.progress=curIdx;ap.lastAt=Date.now();persist(true);
+    setSegComplete(ap,curIdx,false);
+    persist(true);
     document.getElementById('tts-status').textContent='Marked incomplete';
   } else {
-    // Mark complete: advance progress past this script
-    if(curIdx===ap.progress&&ap.progress<total){
-      ap.progress++;ap.lastAt=Date.now();persist(true);
-      document.getElementById('tts-status').textContent='✓ Marked complete';
-    }
+    setSegComplete(ap,curIdx,true);
+    persist(true);
+    document.getElementById('tts-status').textContent='✓ Marked complete';
   }
   updateCompleteBtn();
 }
 
 function autoComplete(){
-  const pat=patterns.find(p=>p.id===curPid);if(!pat)return;
   const ap=active.find(a=>a.pid===curPid);if(!ap)return;
-  const total=(pat.main&&pat.main.body?1:0)+pat.domains.length;
-  if(curIdx===ap.progress&&ap.progress<total){
-    ap.progress++;ap.lastAt=Date.now();
-    activeDirty=true;
-    // Save immediately — don't debounce, user may navigate away in seconds
-    clearTimeout(saveTimer);
-    saveToServer();
-    const statusEl=document.getElementById('tts-status');
-    if(statusEl)statusEl.textContent='✓ Marked complete';
-    updateCompleteBtn();
-  }
+  if(getCompleted(ap).includes(curIdx))return; // already marked — nothing to do
+  setSegComplete(ap,curIdx,true);
+  activeDirty=true;
+  // Save immediately — don't debounce, user may navigate away in seconds
+  clearTimeout(saveTimer);
+  saveToServer();
+  const statusEl=document.getElementById('tts-status');
+  if(statusEl)statusEl.textContent='✓ Marked complete';
+  updateCompleteBtn();
 }
 
 // ─── OPT-IN ───────────────────────────────────────────────────────────────────
@@ -2062,7 +2100,7 @@ function openOptinModal(){
 function toggleOptIn(pid){
   const ap=active.find(a=>a.pid===pid);
   if(ap){if(!confirm('Remove from active work? Progress will be lost.'))return;active=active.filter(a=>a.pid!==pid);document.getElementById('ot-'+pid)?.classList.remove('on')}
-  else{active.push({pid,progress:0,lastAt:Date.now()});document.getElementById('ot-'+pid)?.classList.add('on')}
+  else{active.push({pid,progress:0,completed:[],lastAt:Date.now()});document.getElementById('ot-'+pid)?.classList.add('on')}
   persist(true);renderHome();
 }
 
@@ -2335,13 +2373,22 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){
     // Flush any pending save immediately
     if(saveTimer){clearTimeout(saveTimer);saveToServer();}
+    // Flush the listening-time clock too, then immediately restart it.
+    // Playback is deliberately kept alive in the background (wake lock +
+    // silent audio anchor), so backgrounding the tab must not silently
+    // drop that time — without this, switching apps or locking the screen
+    // mid-session lost everything listened since the last explicit pause.
+    if(listenStart){trackingStop();trackingStart();}
   } else {
     // Refresh from server when returning to app
     refreshIfStale();
   }
 });
 window.addEventListener('focus',()=>refreshIfStale());
-window.addEventListener('beforeunload',()=>{if(saveTimer){clearTimeout(saveTimer);saveToServer();}});
+window.addEventListener('beforeunload',()=>{
+  if(saveTimer){clearTimeout(saveTimer);saveToServer();}
+  trackingStop(); // final flush before the tab is gone for good — harmless no-op if nothing was playing
+});
 setInterval(()=>refreshIfStale(),30000);
 
 // Prevents interval/focus/visibilitychange from ever firing overlapping
