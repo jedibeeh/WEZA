@@ -659,9 +659,9 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
       <label>Select clients</label>
       <div id="pm-student-list"></div>
     </div>
-    <label>Main session script</label>
+    <label>Deep Practice script</label>
     <div class="ta-wrap">
-      <textarea id="pm-main" placeholder="Paste the full main script here…"></textarea>
+      <textarea id="pm-main" placeholder="Paste the full deep practice script here…"></textarea>
       <button type="button" class="ta-scroll-top" title="Scroll to top" onclick="scrollTaTop('pm-main')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
       </button>
@@ -1697,8 +1697,8 @@ function openMapScreen(pid, from){
     ${!ap?`<button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="optInMap('${pid}')">Opt in</button>`:''}
   </div>`;
   if(hasMain){
-    html+=`<div class="section-label">Main session</div>`;
-    html+=drow('M',pat.main.title,pid,0,completed.includes(0),nextIdx===0);
+    html+=`<div class="section-label">Deep Practice</div>`;
+    html+=drow('DP',pat.main.title,pid,0,completed.includes(0),nextIdx===0);
   }
   if(pat.domains.length>0){
     html+='<div class="section-label">Domains</div>';
@@ -1749,7 +1749,7 @@ function nextSegIdx(total,completed){
   return total;
 }
 function segLabel(pat,hasMain,idx){
-  if(hasMain&&idx===0)return pat.main.title||'Main session';
+  if(hasMain&&idx===0)return pat.main.title||'Deep Practice';
   const dIdx=hasMain?idx-1:idx;
   return pat.domains[dIdx]?.title||`Domain ${dIdx+1}`;
 }
@@ -1784,7 +1784,7 @@ function openPlayer(pid,idx){
   }
   const ap=active.find(a=>a.pid===pid);const segCompleted=ap?getCompleted(ap).includes(idx):false;
   document.getElementById('p-eyebrow').textContent=hasMain
-    ?(idx===0?'Main session':`Domain ${idx} · ${pat.name}`)
+    ?(idx===0?'Deep Practice':`Domain ${idx} · ${pat.name}`)
     :`Domain ${idx+1} · ${pat.name}`;
   document.getElementById('p-title').textContent=scr.title;
   const wc=scr.body.split(/\s+/).length;
@@ -2253,7 +2253,7 @@ async function savePattern(){
   if(!name){alert('Please enter a pattern name.');return}
   if(!description){alert('Please enter a description — this helps people understand what the pattern addresses.');return}
   if(!category||category.length===0){alert('Please select at least one category from the Wheel of Life.');return}
-  if(!mainBody && doms.length===0){alert('Please enter either a main session script or at least one domain script.');return}
+  if(!mainBody && doms.length===0){alert('Please enter either a deep practice script or at least one domain script.');return}
   const assignedUsers=[...selectedStudents].map(s=>parseInt(s,10)).filter(n=>!isNaN(n)&&n>0);
   // Derive visibility — a pattern can be both global AND assigned
   const visibility=deriveVisibility(isGlobal,isOutreach,assignedUsers);
@@ -2262,7 +2262,7 @@ async function savePattern(){
     id:pid, name, description,
     category, visibility, assignedUsers,
     showOnLanding: isShowOnLanding,
-    main:mainBody?{title:name+' — Main',body:mainBody}:null,
+    main:mainBody?{title:name+' — Deep Practice',body:mainBody}:null,
     domains:doms,
     createdAt:editPid?(patterns.find(p=>p.id===editPid)?.createdAt||Date.now()):Date.now()
   };
