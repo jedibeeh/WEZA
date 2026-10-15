@@ -45,6 +45,10 @@ nav button svg{width:22px;height:22px;stroke-width:1.6}
 .pin-btn svg{width:17px;height:17px}
 .pin-btn.pinned{color:var(--amber)}
 .pin-btn:active{background:var(--surface2)}
+.list-btn{position:absolute;top:6px;right:6px;width:38px;height:38px;border:none;background:none;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);border-radius:50%}
+.list-btn svg{width:17px;height:17px}
+.list-btn:active{background:var(--surface2)}
 .card:active{background:var(--surface2)}
 .cb{padding:16px 18px}
 .eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--sage);margin-bottom:6px}
@@ -1458,8 +1462,17 @@ function renderHome(){
     const nextIdx=nextSegIdx(total,completed);
     if(i<3){
       let pips='';for(let j=0;j<total;j++){if(completed.includes(j))pips+='<div class="pip done"></div>';else if(j===nextIdx)pips+='<div class="pip next"></div>';else pips+='<div class="pip"></div>';}
-      const nextLabel=nextIdx>=total?'Complete ✓':segLabel(pat,hasMain,nextIdx);
-      html+=`<div class="card" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div class="eyebrow">${done} of ${total} complete</div><div class="card-title">${pat.name}</div><div class="pips">${pips}</div><div class="card-meta" style="margin-top:8px">Next: <span style="color:var(--amber)">${nextLabel}</span></div></div></div>`;
+      const allDone=nextIdx>=total;
+      const nextLabel=allDone?'Complete ✓':segLabel(pat,hasMain,nextIdx);
+      // Tapping an unfinished card plays its next session straight away, so the
+      // card says so (play glyph). A finished card has nothing to play — it opens
+      // the list instead. The corner button always opens the list.
+      const playGlyph='<svg viewBox="0 0 24 24" fill="currentColor" style="width:11px;height:11px;margin-right:6px;color:var(--amber);vertical-align:-1px"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      const listBtn=`<button class="list-btn" aria-label="See all sessions" onclick="event.stopPropagation();openMapScreen('${pat.id}','home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="8" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r=".6" fill="currentColor"/><circle cx="4" cy="12" r=".6" fill="currentColor"/><circle cx="4" cy="18" r=".6" fill="currentColor"/></svg></button>`;
+      const metaLine=allDone
+        ?`<span style="color:var(--sage)">Complete ✓</span>`
+        :`${playGlyph}Next: <span style="color:var(--amber)">${nextLabel}</span>`;
+      html+=`<div class="card" onclick="continuePattern('${pat.id}')">${listBtn}<div class="cb"><div class="eyebrow">${done} of ${total} complete</div><div class="card-title" style="padding-right:26px">${pat.name}</div><div class="pips">${pips}</div><div class="card-meta" style="margin-top:8px">${metaLine}</div></div></div>`;
     }else{
       html+=`<div class="card card-compact" onclick="openMapScreen('${pat.id}','home')"><div class="cb"><div style="flex:1"><div class="card-title">${pat.name}</div><div class="cbar-wrap"><div class="cbar" style="width:${pct}%"></div></div></div><div style="font-size:11px;color:var(--muted);white-space:nowrap">${done}/${total}</div></div></div>`;
     }
@@ -1880,6 +1893,26 @@ function playPrevDomain(){
   if(curIdx<=0)return; // already at the first segment
   openPlayer(curPid,curIdx-1);
   startChunkedPlay();
+}
+
+// Home-screen shortcut: open the pattern's next session and start playing it,
+// skipping the list. "Next" is the same value the card displays, so what plays
+// is exactly what the card promised. A fully completed pattern has no next
+// session, so it opens the list instead of replaying something arbitrary.
+function continuePattern(pid){
+  const pat=patterns.find(p=>p.id===pid);if(!pat)return;
+  const ap=active.find(a=>a.pid===pid);
+  const hasMain=!!(pat.main&&pat.main.body);
+  const total=(hasMain?1:0)+pat.domains.length;
+  const nextIdx=nextSegIdx(total,ap?getCompleted(ap):[]);
+  if(nextIdx>=total){openMapScreen(pid,'home');return}
+  // The player's back arrow returns to this pattern's list; tell it we came from Home
+  // (otherwise it would keep a stale origin, e.g. showing Library-only buttons).
+  curPid=pid;mapFromScreen='home';
+  openPlayer(pid,nextIdx);
+  // openPlayer bails out (and reloads data) if the script isn't loaded yet —
+  // only start audio if the player really opened.
+  if(document.getElementById('player-screen').classList.contains('active'))startChunkedPlay();
 }
 
 // ─── CHUNKED TTS ──────────────────────────────────────────────────────────────
