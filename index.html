@@ -1137,13 +1137,22 @@ let sessionListenedSecs=0, playbackLogged=false; // per-segment-view, reset in o
 
 const PLAYBACK_LOG_THRESHOLD_SECS=300; // 5 minutes of real listened time — not just a tap
 
+// The user's LOCAL calendar date as YYYY-MM-DD. toISOString() gives the UTC date,
+// which rolls over at the wrong hour everywhere except UTC itself (4am in Dubai,
+// the evening in the Americas). Reading the device's own clock means each user's
+// "today" ends at their own midnight, with no timezone setting to configure and
+// no server involvement.
+function localDateKey(d=new Date()){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
 function trackingStart(){listenStart=Date.now()}
 function trackingStop(){
   if(!listenStart)return;
   const secs=Math.round((Date.now()-listenStart)/1000);
   listenStart=null;
   if(secs<2)return;
-  const today=new Date().toISOString().slice(0,10);
+  const today=localDateKey();
   if(!cfg.stats)cfg.stats={};
   cfg.stats[today]=(cfg.stats[today]||0)+secs;
   cfg.stats._total=Object.entries(cfg.stats)
@@ -1168,7 +1177,7 @@ function trackingStop(){
 }
 function getListenStats(){
   const stats=cfg.stats||{};
-  const today=new Date().toISOString().slice(0,10);
+  const today=localDateKey();
   const todaySecs=stats[today]||0;
   // All-time = sum of all date keys (excluding _total meta key)
   const totalSecs=Object.entries(stats)
@@ -1422,6 +1431,7 @@ function showScreen(n){
   if(n==='home')renderHome();
   if(n==='library')renderLibrary();
   if(n==='settings')renderSettings();
+  if(n==='map')renderMapContent();
 }
 function goBack(){stopAll();showScreen(prevScreen)}
 function goToMap(){stopAll();showScreen('map')}
@@ -1712,6 +1722,17 @@ let mapFromScreen='home'; // track where we came from
 
 function openMapScreen(pid, from){
   curPid=pid; mapFromScreen=from||prevScreen;
+  if(!patterns.find(p=>p.id===pid))return;
+  showScreen('map'); // showScreen draws the content via renderMapContent()
+}
+
+// Draws the map screen for the current pattern. showScreen('map') calls this every
+// time the map is shown — including when you come back from the player — so
+// completion ticks and the highlighted "next" domain are always current. Before,
+// the content was only built once in openMapScreen() and went stale as soon as
+// you completed something inside the player.
+function renderMapContent(){
+  const pid=curPid;
   const pat=patterns.find(p=>p.id===pid);if(!pat)return;
   const hasMain=!!(pat.main&&pat.main.body);
   const ap=active.find(a=>a.pid===pid);
@@ -1760,7 +1781,6 @@ function openMapScreen(pid, from){
     </div>`;
   }
   document.getElementById('map-content').innerHTML=html;
-  showScreen('map');
 }
 // ─── COMPLETION TRACKING (order-independent) ───────────────────────────────────
 // ap.completed is the set of segment indices actually marked done — order of
